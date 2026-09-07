@@ -1,0 +1,921 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#0a0a0c">
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="בדיקת דו״ח">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>בדיקת דו״ח התייצבות</title>
+<style>
+:root{
+  --bg:#f2f2f7; --card:#fff; --text:#1c1c1e; --text2:#6e6e73;
+  --line:rgba(0,0,0,.09); --accent:#0071e3; --accent2:#3ea6ff;
+  --ok:#1f9d55; --okbg:rgba(31,157,85,.10);
+  --err:#d93b41; --errbg:rgba(217,59,65,.10);
+  --warn:#e08a00; --warnbg:rgba(224,138,0,.12);
+  --gray:#8e8e93;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#0a0a0c; --card:#17171a; --text:#f5f5f7; --text2:#98989f;
+    --line:rgba(255,255,255,.10); --accent:#0a84ff; --accent2:#5ac8fa;
+    --ok:#32d074; --okbg:rgba(50,208,116,.12);
+    --err:#ff5f57; --errbg:rgba(255,95,87,.12);
+    --warn:#ffb020; --warnbg:rgba(255,176,32,.12);
+  }
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0;height:100%}
+body{
+  background:var(--bg); color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"SF Hebrew","Segoe UI","Noto Sans Hebrew",Arial,sans-serif;
+  font-size:16px; line-height:1.5; -webkit-font-smoothing:antialiased;
+  overflow-x:hidden;
+}
+.wrap{max-width:560px;margin:0 auto;padding:0 20px calc(28px + env(safe-area-inset-bottom))}
+
+/* ---------- כותרת ---------- */
+.top{padding:calc(22px + env(safe-area-inset-top)) 0 4px;text-align:center}
+.top h1{
+  margin:0;font-size:20px;font-weight:660;letter-spacing:-.03em;
+  cursor:default;user-select:none;-webkit-user-select:none;display:inline-block;padding:4px 10px;
+}
+.top p{margin:2px 0 0;font-size:13.5px;color:var(--text2)}
+
+/* ---------- מסך פתיחה ---------- */
+.hero{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  min-height:min(58vh,460px);gap:22px;text-align:center;
+}
+.scanbtn{
+  position:relative;width:208px;height:208px;border-radius:50%;border:none;
+  background:linear-gradient(160deg,var(--accent2),var(--accent));
+  color:#fff;font-family:inherit;font-size:18px;font-weight:650;letter-spacing:-.01em;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9px;
+  box-shadow:0 12px 34px -10px rgba(0,113,227,.55);
+  transition:transform .16s cubic-bezier(.3,1.4,.5,1), box-shadow .16s;
+  cursor:pointer;
+}
+.scanbtn:active{transform:scale(.955);box-shadow:0 6px 18px -8px rgba(0,113,227,.5)}
+.scanbtn:disabled{opacity:.75;cursor:default;transform:none}
+.scanbtn svg{width:52px;height:52px;stroke-width:1.5}
+.hero .note{font-size:13.5px;color:var(--text2);max-width:290px;line-height:1.55}
+.ring{
+  position:absolute;inset:-9px;border-radius:50%;
+  border:2px solid var(--accent);opacity:0;pointer-events:none;
+}
+.scanning .ring{animation:pulse 1.6s ease-out infinite}
+@keyframes pulse{0%{transform:scale(.96);opacity:.55}100%{transform:scale(1.14);opacity:0}}
+
+/* ---------- כרטיס תשובה ---------- */
+.verdict{
+  border-radius:22px;padding:26px 20px;text-align:center;margin:8px 0 18px;
+  animation:rise .32s cubic-bezier(.2,.9,.3,1);
+}
+@keyframes rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.verdict .icon{
+  width:62px;height:62px;border-radius:50%;margin:0 auto 14px;
+  display:flex;align-items:center;justify-content:center;
+}
+.verdict .icon svg{width:34px;height:34px;stroke-width:2.4}
+.verdict h2{margin:0;font-size:24px;font-weight:680;letter-spacing:-.03em}
+.verdict p{margin:6px 0 0;font-size:14px;color:var(--text2)}
+.verdict.good{background:var(--okbg)}
+.verdict.good .icon{background:var(--ok);color:#fff}
+.verdict.good h2{color:var(--ok)}
+.verdict.bad{background:var(--errbg)}
+.verdict.bad .icon{background:var(--err);color:#fff}
+.verdict.bad h2{color:var(--err)}
+.verdict.mid{background:var(--warnbg)}
+.verdict.mid .icon{background:var(--warn);color:#fff}
+.verdict.mid h2{color:var(--warn)}
+
+/* ---------- שורות ---------- */
+.sect{margin-bottom:16px}
+.sect-t{font-size:13px;font-weight:620;color:var(--text2);margin:0 0 8px;padding:0 4px}
+.rows{background:var(--card);border-radius:16px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.row{display:flex;align-items:center;gap:11px;padding:12px 14px;border-bottom:1px solid var(--line)}
+.row:last-child{border-bottom:none}
+.dot{width:9px;height:9px;border-radius:50%;flex:0 0 auto}
+.dot.err{background:var(--err)} .dot.warn{background:var(--warn)}
+.dot.gray{background:var(--gray)} .dot.ok{background:var(--ok)}
+.row .m{flex:1 1 auto;min-width:0}
+.row .name{font-size:15px;font-weight:560;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row .meta{font-size:12.5px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row .num{font-size:14.5px;font-variant-numeric:tabular-nums;color:var(--text2);flex:0 0 auto;direction:ltr}
+.row .num.bad{color:var(--err);font-weight:640}
+
+/* ---------- כפתורים ---------- */
+.btn{
+  font-family:inherit;font-size:16px;font-weight:620;border:none;border-radius:14px;
+  padding:14px 16px;width:100%;background:var(--accent);color:#fff;cursor:pointer;
+  transition:opacity .15s;
+}
+.btn:active{opacity:.72}
+.btn.ghost{background:var(--card);color:var(--accent);box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.btn.small{font-size:14.5px;padding:11px 14px}
+.btn:disabled{opacity:.45}
+.brow{display:flex;gap:10px;margin-top:12px}
+
+/* ---------- מצב טעינה ---------- */
+.loading{text-align:center;color:var(--text2);font-size:14.5px;margin-top:20px}
+.bar{height:3px;border-radius:3px;background:var(--line);overflow:hidden;margin:14px auto 0;max-width:210px}
+.bar i{display:block;height:100%;width:38%;background:var(--accent);border-radius:3px;animation:slide 1.15s ease-in-out infinite}
+@keyframes slide{0%{transform:translateX(160%)}100%{transform:translateX(-160%)}}
+.errbox{
+  background:var(--errbg);color:var(--err);border-radius:14px;padding:14px;
+  font-size:14px;margin-top:16px;text-align:center;line-height:1.5;
+}
+
+/* ---------- מסך מפתח ---------- */
+.sheet{
+  position:fixed;inset:0;z-index:60;background:var(--bg);
+  overflow-y:auto;padding:0 20px calc(30px + env(safe-area-inset-bottom));
+  transform:translateY(100%);transition:transform .3s cubic-bezier(.3,.9,.3,1);
+}
+.sheet.open{transform:none}
+.sheet-top{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:calc(16px + env(safe-area-inset-top)) 0 14px;position:sticky;top:0;
+  background:var(--bg);z-index:2;
+}
+.sheet-top h2{margin:0;font-size:19px;font-weight:660;letter-spacing:-.02em}
+.x{background:none;border:none;color:var(--accent);font-size:16px;font-weight:600;font-family:inherit;cursor:pointer;padding:6px}
+.card{background:var(--card);border-radius:16px;padding:16px;margin-bottom:14px;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.card h3{margin:0 0 3px;font-size:15.5px;font-weight:640}
+.card .sub{margin:0 0 13px;font-size:13px;color:var(--text2);line-height:1.5}
+label{display:block;font-size:13px;color:var(--text2);margin:0 0 6px}
+input[type=text],input[type=password],textarea{
+  font-family:inherit;font-size:16px;width:100%;padding:12px;border-radius:12px;
+  border:1px solid var(--line);background:var(--bg);color:var(--text);outline:none;
+}
+input:focus,textarea:focus{border-color:var(--accent)}
+textarea{min-height:150px;resize:vertical;font-size:14px;line-height:1.55}
+input[type=range]{width:100%}
+.field{margin-bottom:14px}
+.hint{font-size:12.5px;color:var(--text2);margin-top:7px;line-height:1.5}
+.ok-msg{font-size:13.5px;color:var(--ok);margin-top:11px;text-align:center}
+.bad-msg{font-size:13.5px;color:var(--err);margin-top:11px;text-align:center}
+.hidden{display:none!important}
+.thumbs{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:16px}
+.thumbs img{width:56px;height:56px;object-fit:cover;border-radius:9px;border:1px solid var(--line)}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <div class="top">
+    <h1 id="appTitle">בדיקת דו״ח התייצבות</h1>
+    <p id="appSub">התאמת שמות למספרי עובד</p>
+  </div>
+
+  <!-- ============ מסך פתיחה ============ -->
+  <div id="home" class="hero">
+    <button class="scanbtn" id="btnScan">
+      <span class="ring"></span>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 9V6a3 3 0 0 1 3-3h3M15 3h3a3 3 0 0 1 3 3v3M21 15v3a3 3 0 0 1-3 3h-3M9 21H6a3 3 0 0 1-3-3v-3"/>
+        <path d="M7 12h10"/>
+      </svg>
+      התחל סריקה
+    </button>
+    <p class="note" id="homeNote"></p>
+    <div class="thumbs" id="thumbs"></div>
+  </div>
+
+  <!-- ============ מצב עבודה ============ -->
+  <div id="working" class="hidden">
+    <div class="loading">
+      <div id="workText">קורא את הדו״ח…</div>
+      <div class="bar"><i></i></div>
+    </div>
+  </div>
+
+  <!-- ============ תוצאות ============ -->
+  <div id="results" class="hidden"></div>
+
+  <div id="errArea"></div>
+
+  <input type="file" id="filePick" accept="image/*" multiple class="hidden">
+</div>
+
+<!-- ============ מסך מפתח ============ -->
+<div class="sheet" id="sheet">
+  <div class="wrap" style="padding:0">
+    <div class="sheet-top">
+      <h2>הגדרות מפתח</h2>
+      <button class="x" id="btnCloseSheet">סגור</button>
+    </div>
+
+    <div class="card">
+      <h3>מקור הרשימה</h3>
+      <p class="sub">הרשימה נמשכת מקובץ CSV ברפוזיטורי הפרטי בגיטהאב, בכל פתיחה של האפליקציה. שלושת השדות נשמרים בטלפון הזה בלבד.</p>
+      <div class="field">
+        <label>רפוזיטורי</label>
+        <input type="text" id="ghRepo" dir="ltr" spellcheck="false" placeholder="Hilux10/attendance-roster">
+      </div>
+      <div class="field">
+        <label>שם הקובץ</label>
+        <input type="text" id="ghPath" dir="ltr" spellcheck="false" placeholder="roster.csv">
+      </div>
+      <div class="field">
+        <label>טוקן</label>
+        <input type="password" id="ghToken" dir="ltr" spellcheck="false" autocomplete="off" placeholder="github_pat_...">
+        <div class="hint">
+          <label style="display:inline;margin:0">
+            <input type="checkbox" id="showGh" style="width:auto;vertical-align:-2px"> הצג טוקן
+          </label>
+        </div>
+      </div>
+      <div class="brow">
+        <button class="btn small" id="btnSaveGh">שמירה</button>
+        <button class="btn small ghost" style="flex:0 0 44%" id="btnPull">משוך רשימה</button>
+      </div>
+      <div id="ghMsg"></div>
+    </div>
+
+    <div class="card">
+      <h3>רשימה ידנית</h3>
+      <p class="sub">גיבוי לשימוש ללא מסד נתונים. שם, מספר עובד ותפקיד מופרדים בטאב. משיכה מהענן דורסת את מה שכאן.</p>
+      <textarea id="rosterText" placeholder="פקלב נועה&#9;830044&#9;בודק בטחוני"></textarea>
+      <div class="brow">
+        <button class="btn small" id="btnSaveRoster">שמירה</button>
+        <button class="btn small ghost" style="flex:0 0 38%" id="btnClearRoster">מחיקה</button>
+      </div>
+      <div id="rosterMsg"></div>
+    </div>
+
+    <div class="card">
+      <h3>מפתח איי-פי-איי</h3>
+      <p class="sub">נשמר בטלפון הזה בלבד. נשלח רק לשרת של אנתרופיק.</p>
+      <div class="field">
+        <input type="password" id="apiKey" placeholder="sk-ant-..." autocomplete="off" spellcheck="false" dir="ltr">
+        <div class="hint">
+          <label style="display:inline;margin:0">
+            <input type="checkbox" id="showKey" style="width:auto;vertical-align:-2px"> הצג מפתח
+          </label>
+        </div>
+      </div>
+      <div class="field">
+        <label>מודל</label>
+        <input type="text" id="modelName" dir="ltr" spellcheck="false">
+      </div>
+      <div class="brow">
+        <button class="btn small" id="btnSaveKey">שמירה</button>
+        <button class="btn small ghost" style="flex:0 0 38%" id="btnTestKey">בדיקה</button>
+      </div>
+      <div id="keyMsg"></div>
+    </div>
+
+    <div class="card">
+      <h3>רגישות ההשוואה</h3>
+      <p class="sub">כמה שוני בכתיב עדיין נחשב לאותו אדם.</p>
+      <div class="field">
+        <label>התאמה ודאית: <span id="thHighVal"></span></label>
+        <input type="range" id="thHigh" min="70" max="98" step="1">
+      </div>
+      <div class="field">
+        <label>התאמה מסופקת: <span id="thLowVal"></span></label>
+        <input type="range" id="thLow" min="45" max="85" step="1">
+      </div>
+      <div class="hint">מתחת לסף התחתון — השם יסומן כלא נמצא ברשימה.</div>
+    </div>
+
+    <div class="card">
+      <h3>גרסה</h3>
+      <p class="sub" style="margin:0">2.2 · מסך מפתח נפתח בלחיצה ארוכה על כותרת האפליקציה.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ==========================================================
+   אחסון
+   ========================================================== */
+const LS={key:'ekbd.apikey',model:'ekbd.model',roster:'ekbd.roster',
+          thHigh:'ekbd.thHigh',thLow:'ekbd.thLow',
+          ghRepo:'ekbd.ghRepo',ghPath:'ekbd.ghPath',ghToken:'ekbd.ghToken',
+          rosterAt:'ekbd.rosterAt'};
+const DEFAULT_REPO='Hilux10/attendance-roster';
+const DEFAULT_PATH='roster.csv';
+const DEFAULT_MODEL='claude-sonnet-5';
+const get=(k,d='')=>{try{return localStorage.getItem(k)??d}catch(e){return d}};
+const set=(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}};
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+/* ==========================================================
+   נרמול שמות בעברית
+   ========================================================== */
+const FINALS={'ך':'כ','ם':'מ','ן':'נ','ף':'פ','ץ':'צ'};
+function normName(s){
+  if(!s) return '';
+  return String(s)
+    .replace(/[\u0591-\u05C7]/g,'')
+    .replace(/["'`״׳“”‘’]/g,'')
+    .replace(/[^\u0590-\u05FFa-zA-Z0-9 ]/g,' ')
+    .replace(/\s+/g,' ').trim()
+    .split('').map(c=>FINALS[c]||c).join('').toLowerCase();
+}
+function skeleton(s){ return normName(s).replace(/[אהוי]/g,'').replace(/\s+/g,' ').trim(); }
+function sortTokens(s){ return s.split(' ').filter(Boolean).sort().join(' '); }
+function tokens(s){ return s.split(' ').filter(Boolean); }
+function lev(a,b){
+  if(a===b) return 0;
+  if(!a.length) return b.length;
+  if(!b.length) return a.length;
+  let prev=new Array(b.length+1);
+  for(let j=0;j<=b.length;j++) prev[j]=j;
+  for(let i=1;i<=a.length;i++){
+    const cur=[i];
+    for(let j=1;j<=b.length;j++)
+      cur[j]=Math.min(prev[j]+1,cur[j-1]+1,prev[j-1]+(a[i-1]===b[j-1]?0:1));
+    prev=cur;
+  }
+  return prev[b.length];
+}
+function sim(a,b){ if(!a||!b) return 0; return 1-lev(a,b)/Math.max(a.length,b.length); }
+function tokenScore(A,B){
+  if(!A.length||!B.length) return 0;
+  const short=A.length<=B.length?A:B, long=A.length<=B.length?B:A;
+  const used=new Array(long.length).fill(false);
+  let total=0;
+  short.forEach(t=>{
+    let bi=-1,bs=0;
+    long.forEach((u,i)=>{ if(used[i])return; const s=sim(t,u); if(s>bs){bs=s;bi=i;} });
+    if(bi>=0) used[bi]=true;
+    total+=bs;
+  });
+  return (total/short.length)*Math.max(0.8,1-0.06*Math.abs(A.length-B.length));
+}
+
+/* ==========================================================
+   רשימת העובדים
+   ========================================================== */
+let roster=[];
+function buildEntry(name,num,role){
+  const n=normName(name), sk=skeleton(name);
+  return {name,num:String(num),role:(role||'').trim(),
+          _n:n,_sk:sk,_nS:sortTokens(n),_skS:sortTokens(sk),
+          _nT:tokens(n),_skT:tokens(sk)};
+}
+function parseRoster(text){
+  const out=[];
+  text.split(/\r?\n/).forEach(line=>{
+    if(!line.trim()) return;
+    let parts=line.split(/\t|[;,]|\s{2,}/).map(s=>s.trim()).filter(Boolean);
+    if(parts.length<2){
+      const t=line.trim();
+      let m=t.match(/^(.+?)\s+(\d{3,12})$/);
+      if(m) parts=[m[1],m[2]];
+      else { m=t.match(/^(\d{3,12})\s+(.+)$/); if(m) parts=[m[1],m[2]]; else return; }
+    }
+    const idx=parts.findIndex(p=>{
+      const c=p.replace(/[^\d]/g,'');
+      return c.length>=3&&c.length<=12&&/^[\d\s\-]+$/.test(p);
+    });
+    if(idx<0) return;
+    const num=parts[idx].replace(/\D/g,'');
+    let name,role;
+    if(idx===0){ name=parts[1]||''; role=parts.slice(2).join(' '); }
+    else { name=parts.slice(0,idx).join(' '); role=parts.slice(idx+1).join(' '); }
+    name=name.replace(/\s+/g,' ').trim();
+    if(!name||!num) return;
+    if(!/[\u0590-\u05FFa-zA-Z]/.test(name)) return;
+    if(/^(שם|שם הבודק|שם העובד|שם מלא)$/.test(name)) return;
+    out.push(buildEntry(name,num,role));
+  });
+  return out;
+}
+function loadRoster(){
+  const raw=get(LS.roster,'');
+  roster = raw ? JSON.parse(raw).map(r=>buildEntry(r.name,r.num,r.role)) : [];
+}
+function saveRoster(list){
+  set(LS.roster,JSON.stringify(list.map(r=>({name:r.name,num:r.num,role:r.role}))));
+  set(LS.rosterAt,new Date().toISOString());
+  roster=list;
+}
+
+/* ---------- משיכה מגיטהאב ----------
+   הקובץ יושב ברפוזיטורי פרטי; הטוקן (קריאה בלבד) שמור בטלפון. */
+function ghReady(){
+  return !!(get(LS.ghRepo,DEFAULT_REPO).trim() && get(LS.ghToken,'').trim());
+}
+
+/* פירוק CSV שמכבד מרכאות — תפקידים כמו רמ"ש אבטחה מגיעים במרכאות כפולות */
+function parseCSVLine(line){
+  const out=[]; let cur='', q=false;
+  for(let i=0;i<line.length;i++){
+    const ch=line[i];
+    if(q){
+      if(ch==='"' && line[i+1]==='"'){ cur+='"'; i++; }
+      else if(ch==='"'){ q=false; }
+      else cur+=ch;
+    } else {
+      if(ch==='"') q=true;
+      else if(ch===','){ out.push(cur); cur=''; }
+      else cur+=ch;
+    }
+  }
+  out.push(cur);
+  return out.map(v=>v.trim());
+}
+function parseCSV(text){
+  const lines=text.replace(/^\uFEFF/,'').split(/\r?\n/).filter(l=>l.trim());
+  if(!lines.length) return [];
+  const head=parseCSVLine(lines[0]).map(h=>h.toLowerCase());
+  const iName=head.findIndex(h=>/name|שם/.test(h));
+  const iNum =head.findIndex(h=>/emp_number|number|מספר/.test(h));
+  const iRole=head.findIndex(h=>/role|תפקיד/.test(h));
+  const iAct =head.findIndex(h=>/active|פעיל/.test(h));
+  if(iName<0||iNum<0) throw new Error('כותרות הקובץ לא תקינות — צריך name ו-emp_number');
+  const out=[];
+  for(let i=1;i<lines.length;i++){
+    const c=parseCSVLine(lines[i]);
+    const name=(c[iName]||'').trim();
+    const num =(c[iNum]||'').replace(/\D/g,'');
+    if(!name||!num) continue;
+    if(iAct>=0 && /^(false|0|לא)$/i.test((c[iAct]||'').trim())) continue;
+    out.push(buildEntry(name,num,iRole>=0?c[iRole]:''));
+  }
+  return out;
+}
+
+async function fetchRoster(){
+  const repo =(get(LS.ghRepo,DEFAULT_REPO)||DEFAULT_REPO).trim().replace(/^\/+|\/+$/g,'');
+  const path =(get(LS.ghPath,DEFAULT_PATH)||DEFAULT_PATH).trim().replace(/^\/+/,'');
+  const token= get(LS.ghToken,'').trim();
+  if(!repo||!token) throw new Error('הרפוזיטורי או הטוקן לא הוגדרו');
+  const url='https://api.github.com/repos/'+repo+'/contents/'+encodeURIComponent(path)+'?ref=main';
+  let res;
+  try{
+    res=await fetch(url,{
+      cache:'no-store',
+      headers:{'Authorization':'Bearer '+token,'Accept':'application/vnd.github.raw'}
+    });
+  }catch(e){ throw new Error('אין חיבור לרשת'); }
+  if(res.status===401) throw new Error('הטוקן שגוי או פג תוקף');
+  if(res.status===404) throw new Error('הקובץ לא נמצא — בדוק את שם הרפוזיטורי והקובץ');
+  if(res.status===403) throw new Error('אין הרשאה — ודא שהטוקן כולל Contents: Read-only');
+  if(!res.ok) throw new Error('שגיאת גיטהאב '+res.status);
+  const text=await res.text();
+  const list=parseCSV(text);
+  if(!list.length) throw new Error('לא נמצאו שורות תקינות בקובץ');
+  saveRoster(list);
+  return list.length;
+}
+function refreshQuiet(){
+  if(!ghReady()) return;
+  fetchRoster().then(()=>updateHomeNote()).catch(()=>{});
+}
+function rosterWhen(){
+  const iso=get(LS.rosterAt,''); if(!iso) return '';
+  const d=new Date(iso); if(isNaN(d.getTime())) return '';
+  const p=n=>String(n).padStart(2,'0');
+  return d.toDateString()===new Date().toDateString()
+    ? 'עודכן היום '+p(d.getHours())+':'+p(d.getMinutes())
+    : 'עודכן '+p(d.getDate())+'/'+p(d.getMonth()+1);
+}
+
+/* ==========================================================
+   התאמה
+   ========================================================== */
+function scoreAgainst(name,r){
+  const n=normName(name), sk=skeleton(name);
+  return Math.max(
+    sim(n,r._n), sim(sortTokens(n),r._nS), sim(sk,r._sk)*0.99,
+    tokenScore(tokens(n),r._nT)*0.98, tokenScore(tokens(sk),r._skT)*0.97
+  );
+}
+function bestMatch(name){
+  const n=normName(name), sk=skeleton(name);
+  const nS=sortTokens(n), skS=sortTokens(sk), nT=tokens(n), skT=tokens(sk);
+  let best={score:0,entry:null}, second={score:0,entry:null};
+  roster.forEach(r=>{
+    const s=Math.max(
+      sim(n,r._n), sim(nS,r._nS),
+      sim(sk,r._sk)*0.99, sim(skS,r._skS)*0.99,
+      tokenScore(nT,r._nT)*0.98, tokenScore(skT,r._skT)*0.97
+    );
+    if(s>best.score){ second=best; best={score:s,entry:r}; }
+    else if(s>second.score){ second={score:s,entry:r}; }
+  });
+  return {best,second};
+}
+function compare(rows){
+  const thHigh=parseInt(get(LS.thHigh,'86'),10)/100;
+  const thLow =parseInt(get(LS.thLow,'68'),10)/100;
+  return rows.map(r=>{
+    const name=(r.name||'').trim();
+    const num=String(r.employee_number||'').replace(/\D/g,'');
+    let {best,second}=bestMatch(name);
+
+    /* מספר העובד כרמז: אם המספר שבדו״ח קיים ברשימה והשם שלידו
+       דומה מספיק — זו ההתאמה הנכונה. */
+    const owner=num?roster.find(x=>x.num===num):null;
+    if(owner&&owner!==best.entry){
+      const os=scoreAgainst(name,owner);
+      if(os>=thLow && best.score-os<0.10){ second=best; best={score:os,entry:owner}; }
+    }
+    const out={name,num,station:(r.station||'').trim(),
+               match:best.entry,score:best.score,owner};
+    if(!roster.length){ out.status='noroster'; return out; }
+    if(best.score<thLow||!best.entry){ out.status='notfound'; return out; }
+    if(best.score<thHigh){
+      out.status='unsure'; out.alt=second.entry;
+      out.numOk=num&&best.entry.num===num; return out;
+    }
+    if(second.entry&&second.entry!==best.entry&&(best.score-second.score)<0.03){
+      out.status='unsure'; out.alt=second.entry; out.ambiguous=true;
+      out.numOk=num&&best.entry.num===num; return out;
+    }
+    if(!num){ out.status='missing'; return out; }   /* משמרת שטרם נפתחה */
+    out.status = best.entry.num===num ? 'ok' : 'wrong';
+    return out;
+  });
+}
+
+/* ==========================================================
+   קריאה לאיי-פי-איי
+   ========================================================== */
+async function callClaude(content,maxTokens){
+  const key=get(LS.key,'').trim();
+  if(!key) throw new Error('לא הוגדר מפתח איי-פי-איי');
+  const model=get(LS.model,DEFAULT_MODEL)||DEFAULT_MODEL;
+  const res=await fetch('https://api.anthropic.com/v1/messages',{
+    method:'POST',
+    headers:{
+      'content-type':'application/json',
+      'x-api-key':key,
+      'anthropic-version':'2023-06-01',
+      'anthropic-dangerous-direct-browser-access':'true'
+    },
+    body:JSON.stringify({model,max_tokens:maxTokens||4000,messages:[{role:'user',content}]})
+  });
+  const data=await res.json().catch(()=>null);
+  if(!res.ok) throw new Error((data&&data.error&&data.error.message)||('HTTP '+res.status));
+  return (data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('\n');
+}
+const EXTRACT_PROMPT=`בתמונה מופיע דו״ח התייצבות בעברית בפורמט טבלה (לרוב צילום מסך של אקסל).
+העמודות הרלוונטיות: "מס' עובד" ו"שם הבודק", ולצידן "תחנה".
+
+הוצא כל שורה שמופיע בה שם של אדם בעמודת "שם הבודק".
+כללים:
+- שורה בלי שם — דלג עליה לגמרי.
+- דלג על שורות סיכום (למשל "סה\\"כ שעות תקן קב\\"ט") ועל שורת הכותרת.
+- אם יש שם אבל תא מספר העובד ריק — החזר employee_number כמחרוזת ריקה.
+- employee_number: ספרות בלבד, בדיוק כפי שמופיע.
+- name: העתק את השם בדיוק כפי שכתוב, בלי לתקן שגיאות כתיב ובלי להשלים אותיות.
+- station: שם התחנה באותה שורה, אם קיים.
+
+החזר JSON בלבד, בלי טקסט לפני או אחרי ובלי סימוני מרקדאון:
+{"rows":[{"station":"","name":"","employee_number":""}]}`;
+
+function parseJSONLoose(txt){
+  let t=txt.trim().replace(/^```(?:json)?/i,'').replace(/```$/,'').trim();
+  try{ return JSON.parse(t); }catch(e){}
+  const s=t.indexOf('{'), e=t.lastIndexOf('}');
+  if(s>=0&&e>s){ try{ return JSON.parse(t.slice(s,e+1)); }catch(err){} }
+  throw new Error('התשובה מהמודל לא הגיעה כ-JSON תקין');
+}
+
+/* ==========================================================
+   תמונות
+   ========================================================== */
+function resizeImage(file,maxDim=1568,quality=0.85){
+  return new Promise((resolve,reject)=>{
+    const rd=new FileReader();
+    rd.onload=()=>{
+      const img=new Image();
+      img.onload=()=>{
+        let w=img.width,h=img.height;
+        const sc=Math.min(1,maxDim/Math.max(w,h));
+        w=Math.round(w*sc); h=Math.round(h*sc);
+        const cv=document.createElement('canvas');
+        cv.width=w; cv.height=h;
+        const cx=cv.getContext('2d');
+        cx.fillStyle='#fff'; cx.fillRect(0,0,w,h);
+        cx.drawImage(img,0,0,w,h);
+        const url=cv.toDataURL('image/jpeg',quality);
+        resolve({dataUrl:url,b64:url.split(',')[1],media:'image/jpeg'});
+      };
+      img.onerror=()=>reject(new Error('קובץ תמונה לא תקין'));
+      img.src=rd.result;
+    };
+    rd.onerror=()=>reject(new Error('קריאת הקובץ נכשלה'));
+    rd.readAsDataURL(file);
+  });
+}
+
+/* ==========================================================
+   תצוגה
+   ========================================================== */
+const ICON_OK='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>';
+const ICON_BAD='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>';
+const ICON_MID='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8v5M12 17h.01"/><circle cx="12" cy="12" r="9"/></svg>';
+
+const GROUPS=[
+  {k:'wrong',   t:'מספר עובד שגוי',            d:'err'},
+  {k:'notfound',t:'שם שלא נמצא ברשימה',        d:'gray'},
+  {k:'unsure',  t:'התאמה מסופקת — דורש בדיקה',  d:'warn'},
+  {k:'missing', t:'טרם נפתחה משמרת — ללא מספר', d:'gray'},
+  {k:'ok',      t:'תקין',                      d:'ok'}
+];
+let lastResults=[];
+
+function rowHTML(r,g){
+  let meta='',num='',cls='';
+  if(g.k==='ok'){
+    meta=[r.station,r.match.role].filter(Boolean).join(' · ');
+    num=r.num;
+  } else if(g.k==='wrong'){
+    meta='ברשימה: '+r.match.num+(r.owner&&r.owner!==r.match?' · '+r.num+' שייך ל'+r.owner.name:'');
+    num=r.num; cls=' bad';
+  } else if(g.k==='missing'){
+    meta=[r.station,r.match.role,'מספר ברשימה: '+r.match.num].filter(Boolean).join(' · ');
+    num='—';
+  } else if(g.k==='notfound'){
+    meta='הכי קרוב: '+(r.match?r.match.name+' ('+Math.round(r.score*100)+'%)':'אין');
+    num=r.num||'—';
+  } else if(g.k==='unsure'){
+    meta=r.ambiguous&&r.alt
+      ? 'דומה גם ל'+r.match.name+' וגם ל'+r.alt.name
+      : 'אולי: '+r.match.name+' · '+r.match.num+' ('+Math.round(r.score*100)+'%)'+(r.numOk?' · המספר תואם':'');
+    num=r.num||'—';
+  } else {
+    meta='לא הוגדרה רשימת עובדים'; num=r.num||'—';
+  }
+  return '<div class="row"><span class="dot '+g.d+'"></span><div class="m">'+
+         '<div class="name">'+esc(r.name)+'</div><div class="meta">'+esc(meta)+'</div></div>'+
+         '<div class="num'+cls+'">'+esc(num)+'</div></div>';
+}
+
+function render(results){
+  lastResults=results;
+  const c=k=>results.filter(r=>r.status===k).length;
+  const problems=c('wrong')+c('notfound')+c('unsure');
+  const total=results.length;
+  let html='';
+
+  if(!total){
+    html='<div class="verdict mid"><div class="icon">'+ICON_MID+'</div>'+
+         '<h2>לא זוהו שורות</h2><p>לא נמצאו שמות בתמונה. נסה צילום ברור יותר.</p></div>';
+  } else if(problems===0){
+    html='<div class="verdict good"><div class="icon">'+ICON_OK+'</div>'+
+         '<h2>הדו״ח תקין</h2><p>'+total+' שורות נבדקו, כולן תואמות לרשימה</p></div>';
+  } else if(c('wrong')>0){
+    html='<div class="verdict bad"><div class="icon">'+ICON_BAD+'</div>'+
+         '<h2>'+problems+' '+(problems===1?'חריגה':'חריגות')+'</h2>'+
+         '<p>מתוך '+total+' שורות שנבדקו</p></div>';
+  } else {
+    html='<div class="verdict mid"><div class="icon">'+ICON_MID+'</div>'+
+         '<h2>'+problems+' '+(problems===1?'שורה לבדיקה':'שורות לבדיקה')+'</h2>'+
+         '<p>אין טעויות במספרי עובד · '+total+' שורות נבדקו</p></div>';
+  }
+
+  GROUPS.forEach(g=>{
+    if(g.k==='ok'||g.k==='missing') return;
+    const it=results.filter(r=>r.status===g.k);
+    if(!it.length) return;
+    html+='<div class="sect"><p class="sect-t">'+g.t+' · '+it.length+'</p><div class="rows">'+
+          it.map(r=>rowHTML(r,g)).join('')+'</div></div>';
+  });
+
+  const rest=results.filter(r=>r.status==='ok'||r.status==='missing'||r.status==='noroster');
+  if(rest.length){
+    html+='<div id="restWrap"><button class="btn ghost small" id="btnRest">הצג את שאר '+rest.length+' השורות</button></div>';
+  }
+  html+='<div class="brow"><button class="btn" id="btnAgain">סריקה חדשה</button>';
+  if(problems) html+='<button class="btn ghost" style="flex:0 0 42%" id="btnCopy">העתקת סיכום</button>';
+  html+='</div>';
+
+  $('results').innerHTML=html;
+  $('results').classList.remove('hidden');
+
+  const br=$('btnRest');
+  if(br) br.onclick=()=>{
+    let h='';
+    ['missing','ok','noroster'].forEach(k=>{
+      const g=GROUPS.find(x=>x.k===k)||{k,t:'זוהו בתמונה',d:'gray'};
+      const it=results.filter(r=>r.status===k);
+      if(!it.length) return;
+      h+='<div class="sect"><p class="sect-t">'+g.t+' · '+it.length+'</p><div class="rows">'+
+         it.map(r=>rowHTML(r,g)).join('')+'</div></div>';
+    });
+    $('restWrap').innerHTML=h;
+  };
+  $('btnAgain').onclick=resetHome;
+  const bc=$('btnCopy');
+  if(bc) bc.onclick=()=>copySummary(results,bc);
+}
+
+function copySummary(results,btn){
+  const lines=[];
+  GROUPS.forEach(g=>{
+    if(g.k==='ok'||g.k==='missing') return;
+    const it=results.filter(r=>r.status===g.k);
+    if(!it.length) return;
+    lines.push(g.t+':');
+    it.forEach(r=>{
+      if(g.k==='wrong')
+        lines.push('• '+r.name+' — בדו״ח '+r.num+', ברשימה '+r.match.num+
+                   (r.owner&&r.owner!==r.match?' ('+r.num+' שייך ל'+r.owner.name+')':''));
+      else if(g.k==='notfound') lines.push('• '+r.name+' — לא נמצא ברשימה');
+      else lines.push('• '+r.name+' — התאמה מסופקת ל'+r.match.name);
+    });
+    lines.push('');
+  });
+  lines.push('נבדקו '+results.length+' שורות · תקינות: '+results.filter(r=>r.status==='ok').length);
+  navigator.clipboard.writeText(lines.join('\n')).then(
+    ()=>{ btn.textContent='הועתק ✓'; setTimeout(()=>btn.textContent='העתקת סיכום',1600); },
+    ()=>alert('ההעתקה נכשלה')
+  );
+}
+
+/* ==========================================================
+   זרימת הסריקה
+   ========================================================== */
+function resetHome(){
+  $('results').classList.add('hidden');
+  $('results').innerHTML='';
+  $('errArea').innerHTML='';
+  $('thumbs').innerHTML='';
+  $('working').classList.add('hidden');
+  $('home').classList.remove('hidden');
+  $('btnScan').disabled=false;
+  $('btnScan').classList.remove('scanning');
+  window.scrollTo(0,0);
+}
+function showError(msg,hint){
+  $('working').classList.add('hidden');
+  $('home').classList.remove('hidden');
+  $('btnScan').disabled=false;
+  $('btnScan').classList.remove('scanning');
+  $('errArea').innerHTML='<div class="errbox">'+esc(msg)+(hint?'<br><br>'+esc(hint):'')+'</div>';
+}
+function updateHomeNote(){
+  const n=roster.length, hasKey=!!get(LS.key,'').trim();
+  if(!hasKey||!n){
+    const miss=[]; if(!hasKey) miss.push('מפתח איי-פי-איי'); if(!n) miss.push('רשימת עובדים');
+    $('homeNote').innerHTML='חסר: '+miss.join(' ו')+'.<br>לחיצה ארוכה על הכותרת לפתיחת הגדרות.';
+  } else {
+    const w=rosterWhen();
+    $('homeNote').textContent=n+' עובדים ברשימה'+(w?' · '+w:'');
+  }
+}
+
+$('btnScan').onclick=()=>{ $('errArea').innerHTML=''; $('filePick').click(); };
+
+$('filePick').onchange=async e=>{
+  const files=Array.from(e.target.files||[]).filter(f=>f.type.startsWith('image/'));
+  e.target.value='';
+  if(!files.length) return;
+  if(!get(LS.key,'').trim()){
+    showError('לא הוגדר מפתח איי-פי-איי.','לחיצה ארוכה על כותרת האפליקציה פותחת את מסך ההגדרות.');
+    return;
+  }
+  $('btnScan').disabled=true;
+  $('btnScan').classList.add('scanning');
+  $('home').classList.add('hidden');
+  $('results').classList.add('hidden');
+  $('working').classList.remove('hidden');
+
+  const all=[];
+  try{
+    const imgs=[];
+    $('workText').textContent='מכין את התמונה…';
+    for(const f of files) imgs.push(await resizeImage(f));
+    $('thumbs').innerHTML=imgs.map(i=>'<img src="'+i.dataUrl+'">').join('');
+
+    for(let i=0;i<imgs.length;i++){
+      $('workText').textContent = imgs.length>1
+        ? 'קורא תמונה '+(i+1)+' מתוך '+imgs.length+'…'
+        : 'קורא את הדו״ח…';
+      const txt=await callClaude([
+        {type:'image',source:{type:'base64',media_type:imgs[i].media,data:imgs[i].b64}},
+        {type:'text',text:EXTRACT_PROMPT}
+      ],4000);
+      const p=parseJSONLoose(txt);
+      (p.rows||[]).forEach(r=>{ if(r&&(r.name||'').trim()) all.push(r); });
+    }
+    $('workText').textContent='משווה מול הרשימה…';
+    $('working').classList.add('hidden');
+    render(compare(all));
+  }catch(err){
+    showError('הסריקה נכשלה: '+err.message);
+  }
+};
+
+/* ==========================================================
+   מסך המפתח
+   ========================================================== */
+let pressTimer=null;
+const title=$('appTitle');
+function armPress(){ pressTimer=setTimeout(openSheet,1200); }
+function disarmPress(){ clearTimeout(pressTimer); }
+title.addEventListener('touchstart',armPress,{passive:true});
+title.addEventListener('touchend',disarmPress);
+title.addEventListener('touchmove',disarmPress);
+title.addEventListener('mousedown',armPress);
+title.addEventListener('mouseup',disarmPress);
+title.addEventListener('mouseleave',disarmPress);
+title.addEventListener('contextmenu',e=>e.preventDefault());
+
+function openSheet(){
+  if(navigator.vibrate) navigator.vibrate(18);
+  const raw=get(LS.roster,'');
+  if(raw){
+    try{
+      $('rosterText').value=JSON.parse(raw)
+        .map(r=>r.name+'\t'+r.num+(r.role?'\t'+r.role:'')).join('\n');
+    }catch(e){}
+  }
+  $('apiKey').value=get(LS.key,'');
+  $('modelName').value=get(LS.model,DEFAULT_MODEL);
+  $('ghRepo').value=get(LS.ghRepo,DEFAULT_REPO);
+  $('ghPath').value=get(LS.ghPath,DEFAULT_PATH);
+  $('ghToken').value=get(LS.ghToken,'');
+  $('sheet').classList.add('open');
+}
+$('btnCloseSheet').onclick=()=>{ $('sheet').classList.remove('open'); updateHomeNote(); };
+
+$('btnSaveRoster').onclick=()=>{
+  const p=parseRoster($('rosterText').value);
+  if(!p.length){ $('rosterMsg').innerHTML='<div class="bad-msg">לא זוהו שורות תקינות.</div>'; return; }
+  saveRoster(p);
+  $('rosterMsg').innerHTML='<div class="ok-msg">נשמרו '+p.length+' עובדים ✓</div>';
+  updateHomeNote();
+};
+$('btnClearRoster').onclick=()=>{
+  if(!confirm('למחוק את רשימת העובדים?')) return;
+  set(LS.roster,''); roster=[]; $('rosterText').value='';
+  $('rosterMsg').innerHTML='<div class="ok-msg">נמחק</div>';
+  updateHomeNote();
+};
+$('showGh').onchange=e=>{ $('ghToken').type=e.target.checked?'text':'password'; };
+function saveGh(){
+  set(LS.ghRepo,$('ghRepo').value.trim()||DEFAULT_REPO);
+  set(LS.ghPath,$('ghPath').value.trim()||DEFAULT_PATH);
+  set(LS.ghToken,$('ghToken').value.trim());
+}
+$('btnSaveGh').onclick=()=>{
+  saveGh();
+  $('ghMsg').innerHTML='<div class="ok-msg">נשמר ✓</div>';
+};
+$('btnPull').onclick=async()=>{
+  saveGh();
+  $('ghMsg').innerHTML='<div class="ok-msg">מושך…</div>';
+  try{
+    const n=await fetchRoster();
+    $('ghMsg').innerHTML='<div class="ok-msg">נמשכו '+n+' עובדים ✓</div>';
+    $('rosterText').value=roster.map(r=>r.name+'\t'+r.num+(r.role?'\t'+r.role:'')).join('\n');
+    updateHomeNote();
+  }catch(e){
+    $('ghMsg').innerHTML='<div class="bad-msg">'+esc(e.message)+'</div>';
+  }
+};
+$('showKey').onchange=e=>{ $('apiKey').type=e.target.checked?'text':'password'; };
+$('btnSaveKey').onclick=()=>{
+  set(LS.key,$('apiKey').value.trim());
+  set(LS.model,$('modelName').value.trim()||DEFAULT_MODEL);
+  $('keyMsg').innerHTML='<div class="ok-msg">נשמר ✓</div>';
+  updateHomeNote();
+};
+$('btnTestKey').onclick=async()=>{
+  set(LS.key,$('apiKey').value.trim());
+  set(LS.model,$('modelName').value.trim()||DEFAULT_MODEL);
+  $('keyMsg').innerHTML='<div class="ok-msg">בודק…</div>';
+  try{
+    await callClaude([{type:'text',text:'ענה במילה אחת: תקין'}],20);
+    $('keyMsg').innerHTML='<div class="ok-msg">המפתח עובד ✓</div>';
+  }catch(e){
+    $('keyMsg').innerHTML='<div class="bad-msg">'+esc(e.message)+'</div>';
+  }
+  updateHomeNote();
+};
+['thHigh','thLow'].forEach(id=>{
+  const el=$(id), lbl=$(id+'Val'), dflt=id==='thHigh'?'86':'68';
+  el.value=get(LS[id],dflt);
+  lbl.textContent=el.value+'%';
+  el.oninput=()=>{ lbl.textContent=el.value+'%'; set(LS[id],el.value); };
+});
+
+/* ==========================================================
+   אתחול
+   ========================================================== */
+loadRoster();
+updateHomeNote();
+refreshQuiet();
+if('serviceWorker' in navigator){
+  window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
+}
+</script>
+</body>
+</html>
