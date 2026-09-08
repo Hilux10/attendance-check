@@ -1,5 +1,5 @@
 /* Recon service worker — מעדיף גרסה חדשה של האפליקציה ושומר מעטפת לעבודה מהירה. */
-const CACHE = 'recon-v8-match-fix';
+const CACHE = 'recon-v10-manual-add';
 const SHELL = [
   './',
   './index.html',

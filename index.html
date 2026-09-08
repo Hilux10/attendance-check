@@ -124,7 +124,10 @@ body.results .bg .glow,body.tray .bg .glow{opacity:.55}
 .tdel{position:absolute;top:5px;left:5px;width:23px;height:23px;border-radius:50%;border:none;
   background:rgba(0,0,0,.7);color:#fff;font-size:15px;line-height:1;cursor:pointer;
   display:flex;align-items:center;justify-content:center;font-family:inherit}
-.tempty{display:flex;align-items:center;justify-content:center;border:1px dashed var(--line);color:var(--gray);font-size:20px;background:none}
+.tempty{display:flex;align-items:center;justify-content:center;border:1px dashed var(--line);color:var(--gray);font-size:26px;background:none;
+  cursor:pointer;font-family:inherit;padding:0;appearance:none;-webkit-appearance:none;
+  transition:transform .12s ease,border-color .12s ease,color .12s ease}
+.tempty:active{transform:scale(.94);border-color:var(--accent);color:var(--accent)}
 .traybtns{display:flex;gap:10px}
 .traybtns .btn{display:flex;align-items:center;justify-content:center;gap:8px}
 .traybtns .btn svg{width:18px;height:18px;stroke-width:1.7}
@@ -444,6 +447,26 @@ input[type=range]{width:100%;accent-color:var(--accent)}
     </div>
 
     <div class="card">
+      <h3>הוספת עובד</h3>
+      <p class="sub">עובדים שעדיין לא מופיעים ברשימה המרכזית. נשמרים במכשיר הזה ומצטרפים להשוואה מיד.</p>
+      <div class="field">
+        <label>שם פרטי</label>
+        <input type="text" id="addFirst" autocomplete="off">
+      </div>
+      <div class="field">
+        <label>שם משפחה</label>
+        <input type="text" id="addLast" autocomplete="off">
+      </div>
+      <div class="field">
+        <label>מספר עובד</label>
+        <input type="text" id="addNum" inputmode="numeric" dir="ltr" autocomplete="off">
+      </div>
+      <button class="btn small" id="btnAddEmp">הוספה</button>
+      <div id="addMsg"></div>
+      <div id="extraList"></div>
+    </div>
+
+    <div class="card">
       <h3>רגישות ההשוואה</h3>
       <p class="sub">כמה שוני בכתיב עדיין נחשב לאותו אדם במכשיר הזה.</p>
       <div class="field">
@@ -458,7 +481,7 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 
     <div class="card">
       <h3>גרסה</h3>
-      <p class="sub" style="margin:0">Recon 3.0 · Backend מאובטח דרך Cloudflare.</p>
+      <p class="sub" style="margin:0">Recon 3.1 · הוספת עובדים ידנית · השוואת שמות מקלה.</p>
     </div>
   </div>
 </div>
@@ -471,7 +494,8 @@ const API_BASE='https://recon-api.danielgoychaev.workers.dev';
 const LS={
   roster:'ekbd.roster', rosterAt:'ekbd.rosterAt',
   thHigh:'ekbd.thHigh', thLow:'ekbd.thLow',
-  token:'recon.session', device:'recon.device', user:'recon.user'
+  token:'recon.session', device:'recon.device', user:'recon.user',
+  extra:'ekbd.extra'
 };
 const get=(k,d='')=>{try{return localStorage.getItem(k)??d}catch(e){return d}};
 const set=(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}};
@@ -578,14 +602,31 @@ function tokenScore(A,B){
   if(!A.length||!B.length) return 0;
   const short=A.length<=B.length?A:B, long=A.length<=B.length?B:A;
   const used=new Array(long.length).fill(false);
-  let total=0;
+  let total=0, consumed=0;
+
   short.forEach(t=>{
-    let bi=-1,bs=0;
-    long.forEach((u,i)=>{ if(used[i])return; const s=sim(t,u); if(s>bs){bs=s;bi=i;} });
-    if(bi>=0) used[bi]=true;
+    let bi=-1, bj=-1, bs=0;
+    /* התאמה למילה בודדת */
+    long.forEach((u,i)=>{
+      if(used[i]) return;
+      const s=sim(t,u);
+      if(s>bs){ bs=s; bi=i; bj=-1; }
+    });
+    /* התאמה לשתי מילים סמוכות שחוברו יחד —
+       "בתאל" מול "בת אל", "אלחי" מול "אל-חי" */
+    for(let i=0;i<long.length-1;i++){
+      if(used[i]||used[i+1]) continue;
+      const s=sim(t,long[i]+long[i+1]);
+      if(s>bs){ bs=s; bi=i; bj=i+1; }
+    }
+    if(bi>=0){ used[bi]=true; consumed++; }
+    if(bj>=0){ used[bj]=true; consumed++; }
     total+=bs;
   });
-  return (total/short.length)*Math.max(0.8,1-0.06*Math.abs(A.length-B.length));
+
+  /* הקנס נגזר ממילים שנשארו ללא זיווג, אחרי איחודים */
+  const leftover=long.length-consumed;
+  return (total/short.length)*Math.max(0.8,1-0.06*leftover);
 }
 
 /* ==========================================================
@@ -626,14 +667,28 @@ function parseRoster(text){
   });
   return out;
 }
+function getExtras(){
+  try{ return JSON.parse(get(LS.extra,'[]'))||[]; }catch(e){ return []; }
+}
+/* עובדים שנוספו ידנית מצטרפים לרשימה המרכזית.
+   מספר שכבר קיים במרכזית — המרכזית גוברת. */
+function applyExtras(){
+  const have=new Set(roster.map(r=>r.num));
+  getExtras().forEach(e=>{
+    if(have.has(String(e.num))) return;
+    roster.push(buildEntry(e.name,e.num,e.role||'נוסף ידנית'));
+  });
+}
 function loadRoster(){
   const raw=get(LS.roster,'');
   roster = raw ? JSON.parse(raw).map(r=>buildEntry(r.name,r.num,r.role)) : [];
+  applyExtras();
 }
 function saveRoster(list){
   set(LS.roster,JSON.stringify(list.map(r=>({name:r.name,num:r.num,role:r.role}))));
   set(LS.rosterAt,new Date().toISOString());
   roster=list;
+  applyExtras();
 }
 
 /* ---------- רשימת העובדים דרך השרת ---------- */
@@ -703,6 +758,17 @@ function rosterWhen(){
 /* ==========================================================
    התאמה
    ========================================================== */
+/* די במילה משותפת אחת (שם פרטי או משפחה) כדי לקבוע
+   שמדובר באותו אדם. לא נדרשת התאמה מלאה של כל חלקי השם. */
+function sharesToken(name,entry){
+  const a=tokens(normName(name)), b=entry._nT||[];
+  for(const t of a) for(const u of b)
+    if(t.length>=2&&u.length>=2&&sim(t,u)>=0.85) return true;
+  const as=tokens(skeleton(name)), bs=entry._skT||[];
+  for(const t of as) for(const u of bs)
+    if(t.length>=2&&u.length>=2&&sim(t,u)>=0.9) return true;
+  return false;
+}
 function scoreAgainst(name,r){
   const n=normName(name), sk=skeleton(name);
   return Math.max(
@@ -756,7 +822,9 @@ function compare(rows){
 
     /* אין מספר בדו"ח — משמרת שטרם נפתחה */
     if(!num){
-      if(!best.entry || best.score<thLow){ out.status='notfound'; return out; }
+      if(!best.entry || best.score<(thHigh-0.10)){
+        out.match=null; out.status='notfound'; return out;
+      }
       if(best.score<thHigh || closeCall){
         out.alt=second.entry; out.ambiguous=closeCall; out.status='unsure'; return out;
       }
@@ -764,26 +832,32 @@ function compare(rows){
       return out;
     }
 
-    /* יש מספר, אבל השם לא זוהה ברשימה כלל */
-    if(!best.entry || best.score<thLow){
-      if(owner){ out.match=owner; out.score=scoreAgainst(name,owner); out.status='name_warn'; return out; }
-      out.status='notfound';
+    /* סף אמינות: מתחת לזה לא נוקבים בשם */
+    const credible = best.entry && best.score>=(thHigh-0.10);
+
+    if(owner){
+      /* המספר קיים ברשימה — בודקים אם הוא מתיישב עם השם */
+      const os=scoreAgainst(name,owner);
+      out.match=owner; out.score=os;
+
+      if(os>=thHigh){ out.status='ok'; return out; }
+
+      /* מילה משותפת אחת מספיקה: "אורי בלה" מול "בלה וורקנך" */
+      if(sharesToken(name,owner)){ out.status='name_warn'; return out; }
+
+      /* אין שום קשר בין השם למי שהמספר שייך לו,
+         והשם מזוהה בבירור כעובד אחר — זו טעות במספר */
+      if(credible && best.entry!==owner){
+        out.match=best.entry; out.score=best.score; out.status='wrong'; return out;
+      }
+      out.status='name_warn';
       return out;
     }
 
-    /* השם זוהה — עכשיו נבדק המספר שלידו */
-    if(best.entry.num===num){
-      /* המספר והשם מצביעים על אותו אדם */
-      out.status = (best.score>=thHigh) ? 'ok' : 'name_warn';
-      return out;
-    }
-
-    /* המספר אינו שייך לאדם שזוהה — זו החריגה שהאפליקציה נועדה לתפוס */
-    if(best.score>=thHigh && !closeCall){
-      out.status='wrong';
-      return out;
-    }
-    out.alt=second.entry; out.ambiguous=closeCall; out.status='unsure_bad';
+    /* המספר אינו קיים ברשימה כלל */
+    if(credible){ out.status='wrong'; return out; }
+    out.match=null; out.alt=null; out.ambiguous=false;
+    out.status='wrong';
     return out;
   });
 }
@@ -870,9 +944,7 @@ function stackHTML(reportNum,sysNum){
 }
 function rowHTML(r,g){
   const pct=r.match?Math.round(r.score*100)+'%':'';
-  const guess=()=> r.ambiguous&&r.alt
-      ? 'דומה גם ל'+r.match.name+' וגם ל'+r.alt.name
-      : 'אולי: '+r.match.name+' ('+pct+')';
+  const guess=()=> r.match ? 'במערכת: '+r.match.name : 'לא נמצאה התאמה';
   let meta='', num=r.num||'—', ncls='gray', card='gray', stack='';
   if(g.k==='ok'){
     meta=[r.station,r.match.role].filter(Boolean).join(' · ');
@@ -892,7 +964,7 @@ function rowHTML(r,g){
     if(!r.match){ meta='מספר העובד אינו קיים ברשימה'; num=r.num||'—'; ncls='err'; }
     card='err';
   } else if(g.k==='name_warn'){
-    meta='המספר תואם ל'+r.match.name+' · השם בדו״ח אינו תואם במלואו למערכת';
+    meta='במערכת רשום: '+r.match.name+' · המספר תקין';
     ncls='ok'; card='warn';
   } else if(g.k==='unsure'){
     meta=guess();
@@ -901,7 +973,7 @@ function rowHTML(r,g){
     meta=[r.station,r.match.role,'במערכת: '+r.match.num].filter(Boolean).join(' · ');
     num='—';
   } else if(g.k==='notfound'){
-    meta='הכי קרוב: '+(r.match?r.match.name+' ('+pct+')':'אין התאמה');
+    meta=r.match ? 'ייתכן: '+r.match.name : 'השם אינו מופיע ברשימה';
   } else {
     meta='לא הוגדרה רשימת עובדים';
   }
@@ -1101,8 +1173,12 @@ function renderTray(){
     h+='<div class="tcell"><img src="'+q.url+'" alt="">'+
        '<button class="tdel" data-i="'+i+'" aria-label="הסרת תמונה">×</button></div>';
   });
-  for(let i=queue.length;i<MAX_SHOTS;i++) h+='<div class="tcell tempty">+</div>';
+  for(let i=queue.length;i<MAX_SHOTS;i++)
+    h+='<button class="tcell tempty" type="button" aria-label="הוספת תמונה">+</button>';
   g.innerHTML=h;
+  g.querySelectorAll('.tempty').forEach(b=>{
+    b.onclick=()=>{ pickInto='tray'; $('filePick').click(); };
+  });
   g.querySelectorAll('.tdel').forEach(b=>{
     b.onclick=()=>{
       const i=parseInt(b.dataset.i,10);
@@ -1189,8 +1265,43 @@ async function handleFiles(files,source='camera'){
 function openSheet(){
   if(navigator.vibrate) navigator.vibrate(18);
   $('sheetUser').textContent=currentUser?currentUser.full_name:'לא מחובר';
+  renderExtras();
   $('sheet').classList.add('open');
 }
+function renderExtras(){
+  const list=getExtras(), el=$('extraList');
+  if(!el) return;
+  if(!list.length){ el.innerHTML=''; return; }
+  el.innerHTML='<p class="sub" style="margin:14px 0 8px">נוספו במכשיר הזה · '+list.length+'</p>'+
+    list.map((e,i)=>'<div class="row" style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line)">'+
+      '<div style="flex:1;min-width:0"><div style="font-size:15px">'+esc(e.name)+'</div></div>'+
+      '<div style="font-variant-numeric:tabular-nums;color:var(--text2);direction:ltr">'+esc(e.num)+'</div>'+
+      '<button class="x" data-i="'+i+'" style="color:var(--err);font-size:15px">הסר</button></div>').join('');
+  el.querySelectorAll('button[data-i]').forEach(b=>{
+    b.onclick=()=>{
+      const arr=getExtras(); arr.splice(parseInt(b.dataset.i,10),1);
+      set(LS.extra,JSON.stringify(arr));
+      loadRoster(); renderExtras(); updateHomeNote();
+    };
+  });
+}
+$('btnAddEmp').onclick=()=>{
+  const first=$('addFirst').value.trim();
+  const last =$('addLast').value.trim();
+  const num  =$('addNum').value.replace(/\D/g,'');
+  const msg=$('addMsg');
+  if(!first&&!last){ msg.innerHTML='<div class="bad-msg">חסר שם</div>'; return; }
+  if(num.length<3){ msg.innerHTML='<div class="bad-msg">מספר עובד לא תקין</div>'; return; }
+  const exists=roster.find(r=>r.num===num);
+  if(exists){ msg.innerHTML='<div class="bad-msg">'+esc(num)+' כבר קיים: '+esc(exists.name)+'</div>'; return; }
+  const arr=getExtras();
+  arr.push({name:(last+' '+first).trim(),num,role:'נוסף ידנית'});
+  set(LS.extra,JSON.stringify(arr));
+  loadRoster();
+  $('addFirst').value=''; $('addLast').value=''; $('addNum').value='';
+  msg.innerHTML='<div class="ok-msg">נוסף ✓</div>';
+  renderExtras(); updateHomeNote();
+};
 $('btnCloseSheet').onclick=()=>{$('sheet').classList.remove('open');updateHomeNote();};
 $('btnOpenAdmin').onclick=()=>window.open(API_BASE+'/admin','_blank','noopener');
 $('btnLogout').onclick=async()=>{
