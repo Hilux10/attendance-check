@@ -481,7 +481,7 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 
     <div class="card">
       <h3>הוספת עובד</h3>
-      <p class="sub">עובדים שעדיין לא מופיעים ברשימה המרכזית. נשמרים במכשיר הזה ומצטרפים להשוואה מיד.</p>
+      <p class="sub">עובדים שעדיין לא מופיעים בספר הטלפונים. נשמרים בשרת וזמינים לכל המכשירים.</p>
       <div class="field">
         <label>שם פרטי</label>
         <input type="text" id="addFirst" autocomplete="off">
@@ -726,28 +726,24 @@ function parseRoster(text){
   });
   return out;
 }
-function getExtras(){
-  try{ return JSON.parse(get(LS.extra,'[]'))||[]; }catch(e){ return []; }
-}
-/* עובדים שנוספו ידנית מצטרפים לרשימה המרכזית.
-   מספר שכבר קיים במרכזית — המרכזית גוברת. */
-function applyExtras(){
-  const have=new Set(roster.map(r=>r.num));
-  getExtras().forEach(e=>{
-    if(have.has(String(e.num))) return;
-    roster.push(buildEntry(e.name,e.num,e.role||'נוסף ידנית'));
-  });
+/* העובדים שנוספו נשמרים בשרת ומגיעים בתוך הרשימה עצמה,
+   כך שכל המכשירים רואים אותם. */
+let extraList=[];
+async function fetchExtras(){
+  try{
+    const d=await apiJSON('/roster/extra');
+    extraList = (d && d.ok && d.employees) ? d.employees : [];
+  }catch(e){ extraList=[]; }
+  return extraList;
 }
 function loadRoster(){
   const raw=get(LS.roster,'');
   roster = raw ? JSON.parse(raw).map(r=>buildEntry(r.name,r.num,r.role)) : [];
-  applyExtras();
 }
 function saveRoster(list){
   set(LS.roster,JSON.stringify(list.map(r=>({name:r.name,num:r.num,role:r.role}))));
   set(LS.rosterAt,new Date().toISOString());
   roster=list;
-  applyExtras();
 }
 
 /* ---------- רשימת העובדים דרך השרת ---------- */
@@ -1358,24 +1354,31 @@ function openSheet(){
   renderExtras();
   $('sheet').classList.add('open');
 }
-function renderExtras(){
-  const list=getExtras(), el=$('extraList');
+async function renderExtras(){
+  const el=$('extraList');
   if(!el) return;
+  el.innerHTML='<p class="sub" style="margin:14px 0 4px">טוען…</p>';
+  const list=await fetchExtras();
   if(!list.length){ el.innerHTML=''; return; }
-  el.innerHTML='<p class="sub" style="margin:14px 0 8px">נוספו במכשיר הזה · '+list.length+'</p>'+
-    list.map((e,i)=>'<div class="row" style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line)">'+
-      '<div style="flex:1;min-width:0"><div style="font-size:15px">'+esc(e.name)+'</div></div>'+
-      '<div style="font-variant-numeric:tabular-nums;color:var(--text2);direction:ltr">'+esc(e.num)+'</div>'+
-      '<button class="x" data-i="'+i+'" style="color:var(--err);font-size:15px">הסר</button></div>').join('');
-  el.querySelectorAll('button[data-i]').forEach(b=>{
-    b.onclick=()=>{
-      const arr=getExtras(); arr.splice(parseInt(b.dataset.i,10),1);
-      set(LS.extra,JSON.stringify(arr));
-      loadRoster(); renderExtras(); updateHomeNote();
+  el.innerHTML='<p class="sub" style="margin:14px 0 8px">נוספו למערכת · '+list.length+'</p>'+
+    list.map(e=>'<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line)">'+
+      '<div style="flex:1;min-width:0"><div style="font-size:15px">'+esc(e.name)+'</div>'+
+      (e.added_by_name?'<div class="sub" style="margin:2px 0 0">'+esc(e.added_by_name)+'</div>':'')+'</div>'+
+      '<div style="font-variant-numeric:tabular-nums;color:var(--text2);direction:ltr">'+esc(e.emp_number)+'</div>'+
+      '<button class="x" data-id="'+e.id+'" style="color:var(--err);font-size:15px">הסר</button></div>').join('');
+  el.querySelectorAll('button[data-id]').forEach(b=>{
+    b.onclick=async()=>{
+      b.disabled=true;
+      try{
+        await apiJSON('/roster/extra/delete',{method:'POST',body:JSON.stringify({id:Number(b.dataset.id)})});
+        await refreshRoster();
+        await renderExtras();
+        updateHomeNote();
+      }catch(e){ b.disabled=false; }
     };
   });
 }
-$('btnAddEmp').onclick=()=>{
+$('btnAddEmp').onclick=async()=>{
   const first=$('addFirst').value.trim();
   const last =$('addLast').value.trim();
   const num  =$('addNum').value.replace(/\D/g,'');
@@ -1384,13 +1387,22 @@ $('btnAddEmp').onclick=()=>{
   if(num.length<3){ msg.innerHTML='<div class="bad-msg">מספר עובד לא תקין</div>'; return; }
   const exists=roster.find(r=>r.num===num);
   if(exists){ msg.innerHTML='<div class="bad-msg">'+esc(num)+' כבר קיים: '+esc(exists.name)+'</div>'; return; }
-  const arr=getExtras();
-  arr.push({name:(last+' '+first).trim(),num,role:'נוסף ידנית'});
-  set(LS.extra,JSON.stringify(arr));
-  loadRoster();
-  $('addFirst').value=''; $('addLast').value=''; $('addNum').value='';
-  msg.innerHTML='<div class="ok-msg">נוסף ✓</div>';
-  renderExtras(); updateHomeNote();
+
+  msg.innerHTML='<div class="ok-msg">שומר…</div>';
+  try{
+    const d=await apiJSON('/roster/extra',{
+      method:'POST',
+      body:JSON.stringify({name:(last+' '+first).trim(), emp_number:num})
+    });
+    if(!d.ok) throw new Error(d.error||'שמירה נכשלה');
+    $('addFirst').value=''; $('addLast').value=''; $('addNum').value='';
+    msg.innerHTML='<div class="ok-msg">נוסף ✓</div>';
+    await refreshRoster();
+    await renderExtras();
+    updateHomeNote();
+  }catch(e){
+    msg.innerHTML='<div class="bad-msg">'+esc(e.message)+'</div>';
+  }
 };
 $('btnCloseSheet').onclick=()=>{$('sheet').classList.remove('open');updateHomeNote();};
 $('btnOpenAdmin').onclick=()=>window.open(API_BASE+'/admin','_blank','noopener');
