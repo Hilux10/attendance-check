@@ -255,12 +255,34 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 .authbox .asub{margin:0 0 20px;color:var(--text2);font-size:13.5px;line-height:1.5}
 .authbox select,.authbox input{font-family:inherit;font-size:16px;width:100%;padding:13px;border-radius:12px;border:1px solid var(--line);background:var(--card2);color:var(--text);outline:none}
 .authbox select:focus,.authbox input:focus{border-color:var(--accent)}
+.authbox select.native{position:absolute;opacity:0;pointer-events:none;width:0;height:0}
+.pickbtn{font-family:inherit;font-size:16px;width:100%;padding:13px;border-radius:12px;
+  border:1px solid var(--line);background:var(--card2);color:var(--text);
+  text-align:right;display:flex;align-items:center;justify-content:space-between;gap:10px;cursor:pointer}
+.pickbtn.empty{color:var(--text2)}
+.pickbtn:active{border-color:var(--accent)}
+.pickbtn svg{width:18px;height:18px;flex:0 0 auto;opacity:.55}
+.pickwrap{position:fixed;inset:0;z-index:120;display:none}
+.pickwrap.open{display:block}
+.pickwrap .bg{position:absolute;inset:0;background:rgba(0,0,0,.45)}
+.picksheet{position:absolute;left:0;right:0;bottom:0;max-height:72vh;display:flex;flex-direction:column;
+  background:var(--card);border-radius:20px 20px 0 0;padding-bottom:env(safe-area-inset-bottom);
+  transform:translateY(100%);transition:transform .26s cubic-bezier(.3,.9,.3,1)}
+.pickwrap.open .picksheet{transform:none}
+.picksheet .ph{display:flex;align-items:center;justify-content:space-between;padding:16px 18px 12px;border-bottom:1px solid var(--line)}
+.picksheet .ph b{font-size:16px;font-weight:600}
+.picksheet .ph button{background:none;border:none;color:var(--accent);font-family:inherit;font-size:15px;cursor:pointer;padding:4px}
+.picklist{overflow-y:auto;-webkit-overflow-scrolling:touch;padding:6px 0 10px}
+.picklist button{display:block;width:100%;text-align:right;background:none;border:none;
+  font-family:inherit;font-size:16px;color:var(--text);padding:14px 18px;cursor:pointer;border-bottom:1px solid var(--line)}
+.picklist button:last-child{border-bottom:none}
+.picklist button:active{background:var(--card2)}
+.picklist button.sel{color:var(--accent);font-weight:600}
 .authbox .afield{margin-bottom:14px}
 .authbox .amsg{min-height:22px;margin-top:12px;text-align:center;font-size:13.5px;color:var(--text2)}
 .authbox .amsg.err{color:var(--err)}
 .authbox .amsg.ok{color:var(--ok)}
-.authbox .privacy{margin-top:16px;color:var(--gray);font-size:11.5px;text-align:center;line-height:1.5}
-
+.authbox 
 @media (prefers-reduced-motion:reduce){.scanning .dial{animation:none}}
 </style>
 </head>
@@ -278,7 +300,11 @@ input[type=range]{width:100%;accent-color:var(--accent)}
     <p class="asub">בחר את שמך והזן את מספר הטלפון שהוגדר עבורך. לאחר הכניסה Recon תזכור את המכשיר הזה.</p>
     <div class="afield">
       <label>שם מלא</label>
-      <select id="loginName"><option value="">טוען משתמשים…</option></select>
+      <select id="loginName" class="native"><option value="">טוען משתמשים…</option></select>
+      <button type="button" class="pickbtn empty" id="loginNameBtn">
+        <span id="loginNameLabel">טוען משתמשים…</span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+      </button>
     </div>
     <div class="afield">
       <label>מספר טלפון</label>
@@ -286,7 +312,6 @@ input[type=range]{width:100%;accent-color:var(--accent)}
     </div>
     <button class="btn" id="btnLogin">כניסה</button>
     <div class="amsg" id="loginMsg"></div>
-    <div class="privacy">מפתחות ה-API וה-GitHub אינם נשמרים בטלפון.</div>
   </div>
 </div>
 
@@ -427,6 +452,14 @@ input[type=range]{width:100%;accent-color:var(--accent)}
   <input type="file" id="filePick" accept="image/*" multiple class="hidden">
 </div>
 <!-- ============ ניהול ---------- -->
+<div class="pickwrap" id="pickWrap">
+  <div class="bg" id="pickBg"></div>
+  <div class="picksheet">
+    <div class="ph"><b>בחירת שם</b><button type="button" id="pickCancel">ביטול</button></div>
+    <div class="picklist" id="pickList"></div>
+  </div>
+</div>
+
 <div class="sheet" id="sheet">
   <div class="wrap" style="padding:0">
     <div class="sheet-top">
@@ -530,6 +563,30 @@ function clearSession(show=true){
 }
 function showLogin(){ $('authGate').classList.remove('hidden'); }
 function hideLogin(){ $('authGate').classList.add('hidden'); }
+/* ה-select נשאר במסמך ומוסתר, כדי שכל קריאה ל-.value תמשיך לעבוד */
+function syncPicker(){
+  const sel=$('loginName'), lbl=$('loginNameLabel'), btn=$('loginNameBtn');
+  const opt=sel.options[sel.selectedIndex];
+  const has=!!sel.value;
+  lbl.textContent = has ? opt.text : (sel.options[0]?sel.options[0].text:'בחר שם');
+  btn.classList.toggle('empty',!has);
+}
+function openPicker(){
+  const sel=$('loginName');
+  const opts=Array.from(sel.options).filter(o=>o.value);
+  if(!opts.length) return;
+  $('pickList').innerHTML=opts.map(o=>
+    '<button type="button" data-v="'+esc(o.value)+'"'+(o.value===sel.value?' class="sel"':'')+'>'+esc(o.text)+'</button>').join('');
+  $('pickList').querySelectorAll('button').forEach(b=>{
+    b.onclick=()=>{ $('loginName').value=b.dataset.v; syncPicker(); closePicker(); $('loginPhone').focus(); };
+  });
+  $('pickWrap').classList.add('open');
+}
+function closePicker(){ $('pickWrap').classList.remove('open'); }
+$('loginNameBtn').onclick=openPicker;
+$('pickBg').onclick=closePicker;
+$('pickCancel').onclick=closePicker;
+
 async function loadLoginUsers(){
   const sel=$('loginName');
   sel.innerHTML='<option value="">טוען משתמשים…</option>';
@@ -538,8 +595,10 @@ async function loadLoginUsers(){
     const data=await res.json();
     if(!data.ok) throw new Error(data.error||'שגיאה');
     sel.innerHTML='<option value="">בחר שם</option>'+data.users.map(n=>'<option value="'+esc(n)+'">'+esc(n)+'</option>').join('');
+    syncPicker();
   }catch(e){
     sel.innerHTML='<option value="">לא ניתן לטעון משתמשים</option>';
+    syncPicker();
     $('loginMsg').textContent='אין חיבור לשרת Recon';
     $('loginMsg').className='amsg err';
   }
@@ -1369,8 +1428,34 @@ async function bootstrap(){
   clearSession(false); showLogin(); updateHomeNote(); await loadLoginUsers();
 }
 bootstrap();
+/* ============================================================
+   עדכון עצמי — בלי מספרי גרסה ובלי התערבות ידנית.
+   הדפדפן מביא את sw.js מהרשת, גרסה חדשה נכנסת לתוקף מיד,
+   והדף מתרענן פעם אחת בלבד. בכל חזרה לאפליקציה נבדק שוב.
+   ============================================================ */
 if('serviceWorker' in navigator){
-  window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
+  let reloading=false;
+  navigator.serviceWorker.addEventListener('controllerchange',()=>{
+    if(reloading) return;
+    reloading=true;
+    location.reload();
+  });
+  window.addEventListener('load',()=>{
+    navigator.serviceWorker.register('sw.js',{updateViaCache:'none'})
+      .then(reg=>{
+        reg.update().catch(()=>{});
+        const nudge=()=>{ if(reg.waiting) reg.waiting.postMessage('skip-waiting'); };
+        nudge();
+        reg.addEventListener('updatefound',()=>{
+          const sw=reg.installing;
+          if(!sw) return;
+          sw.addEventListener('statechange',()=>{ if(sw.state==='installed') nudge(); });
+        });
+        document.addEventListener('visibilitychange',()=>{
+          if(document.visibilityState==='visible') reg.update().catch(()=>{});
+        });
+      }).catch(()=>{});
+  });
 }
 </script>
 </body>
