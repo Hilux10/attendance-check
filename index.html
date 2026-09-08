@@ -72,8 +72,26 @@ body.results .bg .glow,body.tray .bg .glow{opacity:.55}
 .hero{display:flex;flex-direction:column;align-items:center;padding-top:26px}
 .scanwrap{position:relative;width:286px;height:286px;max-width:88vw;display:flex;align-items:center;justify-content:center}
 .dial{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;color:var(--hot)}
-.scanning .dial{animation:spin 7s linear infinite}
+/* כל טבעת היא שכבה נפרדת, כדי שתוכל להסתובב בקצב ובכיוון משלה */
+.dial .d{position:absolute;inset:0;width:100%;height:100%}
 @keyframes spin{to{transform:rotate(360deg)}}
+@keyframes spinBack{to{transform:rotate(-360deg)}}
+
+.dial .dots{animation:spin 30s linear infinite}
+.dial .arcA{animation:spinBack 14s linear infinite}
+.dial .arcB{animation:spin 10s linear infinite}
+.dial .pins{animation:spinBack 22s linear infinite}
+
+/* בזמן סריקה הכל מאיץ — משוב חזותי שהמערכת עובדת */
+.scanning .dial .dots{animation-duration:9s}
+.scanning .dial .arcA{animation-duration:3.4s}
+.scanning .dial .arcB{animation-duration:2.4s}
+.scanning .dial .pins{animation-duration:6s}
+
+/* מכבדים העדפת מערכת להפחתת תנועה */
+@media (prefers-reduced-motion: reduce){
+  .dial .d{animation:none!important}
+}
 .scanbtn{
   position:relative;width:76%;aspect-ratio:1;border-radius:50%;
   border:3px solid var(--hot);
@@ -339,14 +357,22 @@ input[type=range]{width:100%;accent-color:var(--accent)}
   <div id="home" class="hero">
     <div id="fanVeil" class="fanveil hidden"></div>
     <div class="scanwrap" id="scanwrap">
-      <svg class="dial" viewBox="0 0 200 200" fill="none" aria-hidden="true">
-        <circle cx="100" cy="100" r="96" stroke="currentColor" stroke-width="1.4" opacity=".22"
-                stroke-dasharray="1.5 7" stroke-linecap="round"/>
-        <path d="M100 12a88 88 0 0 1 62.2 25.8" stroke="currentColor" stroke-width="2.4" opacity=".8" stroke-linecap="round"/>
-        <path d="M100 188a88 88 0 0 1-62.2-25.8" stroke="currentColor" stroke-width="2.4" opacity=".8" stroke-linecap="round"/>
-        <circle cx="188" cy="100" r="2.6" fill="currentColor"/>
-        <circle cx="12" cy="100" r="2.6" fill="currentColor"/>
-      </svg>
+      <div class="dial" aria-hidden="true">
+        <svg class="d dots" viewBox="0 0 200 200" fill="none">
+          <circle cx="100" cy="100" r="96" stroke="currentColor" stroke-width="1.4" opacity=".22"
+                  stroke-dasharray="1.5 7" stroke-linecap="round"/>
+        </svg>
+        <svg class="d arcA" viewBox="0 0 200 200" fill="none">
+          <path d="M100 12a88 88 0 0 1 62.2 25.8" stroke="currentColor" stroke-width="2.4" opacity=".8" stroke-linecap="round"/>
+        </svg>
+        <svg class="d arcB" viewBox="0 0 200 200" fill="none">
+          <path d="M100 188a88 88 0 0 1-62.2-25.8" stroke="currentColor" stroke-width="2.4" opacity=".8" stroke-linecap="round"/>
+        </svg>
+        <svg class="d pins" viewBox="0 0 200 200" fill="none">
+          <circle cx="188" cy="100" r="2.6" fill="currentColor"/>
+          <circle cx="12" cy="100" r="2.6" fill="currentColor"/>
+        </svg>
+      </div>
       <button class="scanbtn" id="btnScan">
         <svg class="cam" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
           <path d="M9.4 3h5.2l1.3 2H20a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h4.1l1.3-2Z"/>
