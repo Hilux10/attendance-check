@@ -401,7 +401,7 @@ input[type=range]{width:100%;accent-color:var(--accent)}
     <div class="traybtns">
       <button class="btn ghost" id="btnAddShot">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h3l1.4-2h7.2L17 7h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1Z"/><circle cx="12" cy="13" r="3.6"/></svg>
-        צלם עוד
+        הוסף תמונה
       </button>
       <button class="btn ghost" id="btnAddGallery">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="8.5" cy="9.5" r="1.6"/><path d="M3.5 17l4.8-4.6a2 2 0 0 1 2.7-.05L16 17"/></svg>
@@ -481,7 +481,7 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 
     <div class="card">
       <h3>גרסה</h3>
-      <p class="sub" style="margin:0">Recon 3.2 · הוספת עובדים ידנית · ארבע רמות ודאות.</p>
+      <p class="sub" style="margin:0">Recon 3.3 · פלוס פותח מצלמה · גלריה נכנסת למגש.</p>
     </div>
   </div>
 </div>
@@ -1100,6 +1100,7 @@ function updateHomeNote(){
 const MAX_SHOTS=8;
 let queue=[];          /* הצילומים שנאספו במצב סריקה מרובה */
 let pickInto='single'; /* לאן הולכת התמונה הבאה: סריקה מיידית או המגש */
+let fromHomeGallery=false;
 
 function openFan(){
   $('errArea').innerHTML='';
@@ -1152,7 +1153,19 @@ scanBtn.addEventListener('pointerleave',holdCancel);
 scanBtn.addEventListener('contextmenu',e=>e.preventDefault());
 
 $('btnOne').onclick=()=>{ pickInto='single'; closeFan(); $('camPick').click(); };
-$('btnGallery').onclick=()=>{ pickInto='single'; $('errArea').innerHTML=''; $('filePick').click(); };
+function showTray(){
+  $('home').classList.add('hidden');
+  $('tray').classList.remove('hidden');
+  document.body.classList.add('tray');
+  window.scrollTo(0,0);
+}
+$('btnGallery').onclick=()=>{
+  closeFan();
+  $('errArea').innerHTML='';
+  pickInto='tray';
+  fromHomeGallery=true;      /* אחרי הבחירה נפתח את המגש */
+  $('filePick').click();
+};
 
 $('btnMany').onclick=()=>{
   closeFan();
@@ -1182,7 +1195,7 @@ function renderTray(){
     h+='<button class="tcell tempty" type="button" aria-label="הוספת תמונה">+</button>';
   g.innerHTML=h;
   g.querySelectorAll('.tempty').forEach(b=>{
-    b.onclick=()=>{ pickInto='tray'; $('filePick').click(); };
+    b.onclick=()=>{ pickInto='tray'; $('camPick').click(); };
   });
   g.querySelectorAll('.tdel').forEach(b=>{
     b.onclick=()=>{
@@ -1201,11 +1214,16 @@ function renderTray(){
     : 'סרוק הכל';
 }
 function addToQueue(files,source){
+  let skipped=0;
   for(const f of files){
-    if(queue.length>=MAX_SHOTS) break;
+    if(queue.length>=MAX_SHOTS){ skipped++; continue; }
     queue.push({file:f,url:URL.createObjectURL(f),source});
   }
   renderTray();
+  if(skipped){
+    const c=$('trayCount');
+    if(c) c.textContent=queue.length+' מתוך '+MAX_SHOTS+' · '+skipped+' לא נוספו (מעבר למכסה)';
+  }
 }
 $('btnAddShot').onclick=()=>{ pickInto='tray'; $('camPick').click(); };
 $('btnAddGallery').onclick=()=>{ pickInto='tray'; $('filePick').click(); };
@@ -1259,7 +1277,15 @@ async function handleFiles(files,source='camera'){
     e.target.value='';
     if(!files.length) return;
     const source=id==='camPick'?'camera':'gallery';
-    if(pickInto==='tray'){addToQueue(files,source);return;}
+    if(pickInto==='tray'){
+      if(fromHomeGallery){
+        fromHomeGallery=false;
+        /* אם המשתמש ביטל וחזר, ייתכן שהוא כבר במגש — אז לא מאפסים */
+        if(!document.body.classList.contains('tray')){ clearQueue(); showTray(); }
+      }
+      addToQueue(files,source);
+      return;
+    }
     await handleFiles(files,source);
   };
 });
