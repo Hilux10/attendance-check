@@ -1,33 +1,17 @@
 {
-  "name": "בדיקת דו״ח התייצבות",
-  "short_name": "בדיקת דו״ח",
-  "description": "התאמת שמות למספרי עובד בדו״ח התייצבות",
+  "name": "Recon",
+  "short_name": "Recon",
+  "description": "בדיקת דו״ח התייצבות — התאמת שמות למספרי עובד",
   "lang": "he",
   "dir": "rtl",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#ffffff",
-  "theme_color": "#0a0a0c",
+  "background_color": "#08090b",
+  "theme_color": "#08090b",
   "icons": [
-    {
-      "src": "icon-192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "icon-maskable.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "maskable"
-    }
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
   ]
 }

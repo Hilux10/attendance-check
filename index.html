@@ -8,7 +8,8 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Recon">
 <link rel="manifest" href="manifest.json">
-<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" href="icon-192.png">
 <title>Recon · בדיקת דו״ח התייצבות</title>
 <style>
 :root{
@@ -55,14 +56,15 @@ body.results .bg .glow,body.tray .bg .glow{opacity:.55}
 .brand{display:flex;align-items:center;gap:12px;direction:ltr;justify-content:flex-start}
 .mark{width:46px;height:46px;flex:0 0 auto;color:var(--hot);display:flex;align-items:center;justify-content:center}
 .mark svg{width:100%;height:100%;filter:drop-shadow(0 0 10px rgba(255,45,45,.5))}
-.mark{transition:transform .25s ease}
-.mark.holding{animation:hold 10s linear forwards}
+.scanbtn.holding{animation:hold 10s linear forwards}
 @keyframes hold{
-  0%{transform:scale(1)} 18%{transform:scale(1)}
-  100%{transform:scale(1.16);filter:brightness(1.5) drop-shadow(0 0 18px rgba(255,45,45,.95))}
+  0%{box-shadow:0 0 26px rgba(255,45,45,.5), inset 0 0 44px rgba(255,45,45,.14)}
+  18%{box-shadow:0 0 26px rgba(255,45,45,.5), inset 0 0 44px rgba(255,45,45,.14)}
+  100%{box-shadow:0 0 54px rgba(255,45,45,.95), inset 0 0 90px rgba(255,45,45,.42);transform:scale(1.05)}
 }
 .mark img{width:100%;height:100%;object-fit:contain}
 .wordmark{font-size:34px;font-weight:700;letter-spacing:-.02em;direction:ltr;line-height:1}
+.wordmark .o{color:var(--hot)}
 .hdr h1{margin:12px 0 0 -6px;font-size:19px;font-weight:600;letter-spacing:-.02em;display:inline-block;padding:2px 6px;cursor:default;user-select:none;-webkit-user-select:none}
 .hdr .sub{margin:1px 0 0;font-size:13px;color:var(--text2);letter-spacing:.02em}
 
@@ -106,6 +108,10 @@ body.results .bg .glow,body.tray .bg .glow{opacity:.55}
 #home.fan .scanbtn{transform:scale(.62);opacity:0;pointer-events:none}
 #home.fan .gallerybtn{display:none}
 .scanbtn{transition:transform .34s cubic-bezier(.22,1.2,.4,1), opacity .24s ease, box-shadow .2s}
+.fanveil{position:fixed;inset:0;z-index:5;background:rgba(8,9,11,.5);
+  opacity:0;transition:opacity .26s ease}
+#home.fan .fanveil{opacity:1}
+#home.fan .scanwrap,#home.fan .linkbtn{position:relative;z-index:6}
 .linkbtn{background:none;border:none;color:var(--text2);font-family:inherit;font-size:14.5px;padding:12px 18px;margin-top:20px;cursor:pointer}
 .linkbtn:active{color:var(--text)}
 
@@ -242,7 +248,7 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 
 <header class="hdr">
   <div class="brand">
-    <span class="mark" id="brandMark">
+    <span class="mark">
       <!-- להחלפה בלוגו משלך: <img src="logo.png" alt="Recon"> -->
       <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linejoin="round">
         <path d="M20 6 6 24l14 18"/>
@@ -250,7 +256,7 @@ input[type=range]{width:100%;accent-color:var(--accent)}
         <path d="M30 6 16 24l14 18" opacity=".55"/>
       </svg>
     </span>
-    <span class="wordmark">Recon</span>
+    <span class="wordmark">Rec<span class="o">o</span>n</span>
   </div>
   <h1 id="appTitle">בדיקת דו״ח התייצבות</h1>
   <p class="sub" id="appSub">התאמת שמות למספרי עובד</p>
@@ -260,6 +266,7 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 
   <!-- ============ מסך פתיחה ============ -->
   <div id="home" class="hero">
+    <div id="fanVeil" class="fanveil hidden"></div>
     <div class="scanwrap" id="scanwrap">
       <svg class="dial" viewBox="0 0 200 200" fill="none" aria-hidden="true">
         <circle cx="100" cy="100" r="96" stroke="currentColor" stroke-width="1.4" opacity=".22"
@@ -457,7 +464,7 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 
     <div class="card">
       <h3>גרסה</h3>
-      <p class="sub" style="margin:0">Recon 2.7 · מסך המנהל נפתח בלחיצה ארוכה של 10 שניות על הסמל.</p>
+      <p class="sub" style="margin:0">Recon 2.8 · מסך המנהל נפתח בהחזקה של 10 שניות על כפתור הסריקה.</p>
     </div>
   </div>
 </div>
@@ -945,7 +952,7 @@ function updateHomeNote(){
   $('stKey').textContent    = hasKey ? 'מוגדר' : 'חסר';
   if(!hasKey||!n){
     const miss=[]; if(!hasKey) miss.push('מפתח איי-פי-איי'); if(!n) miss.push('רשימת עובדים');
-    $('homeNote').innerHTML='חסר: '+miss.join(' ו')+'.<br>לחיצה ארוכה על הסמל לפתיחת הגדרות.';
+    $('homeNote').innerHTML='חסר: '+miss.join(' ו')+'.<br>החזקה של 10 שניות על כפתור הסריקה פותחת הגדרות.';
   } else {
     $('homeNote').textContent='';
   }
@@ -961,15 +968,52 @@ let pickInto='single'; /* לאן הולכת התמונה הבאה: סריקה מ
 function openFan(){
   $('errArea').innerHTML='';
   $('home').classList.add('fan');
+  document.body.classList.add('fanopen');
+  $('fanVeil').classList.remove('hidden');
   $('btnFanCancel').classList.remove('hidden');
   if(navigator.vibrate) navigator.vibrate(8);
 }
 function closeFan(){
   $('home').classList.remove('fan');
+  document.body.classList.remove('fanopen');
+  $('fanVeil').classList.add('hidden');
   $('btnFanCancel').classList.add('hidden');
 }
-$('btnScan').onclick=openFan;
 $('btnFanCancel').onclick=closeFan;
+$('fanVeil').onclick=closeFan;   /* לחיצה על השטח שמסביב סוגרת בדיוק כמו ביטול */
+
+/* לחיצה קצרה על כפתור הסריקה פותחת את שתי האפשרויות;
+   החזקה של 10 שניות על אותו כפתור פותחת את מסך המנהל. */
+const HOLD_MS=10000;
+let holdTimer=null, holdFired=false;
+const scanBtn=$('btnScan');
+function holdStart(){
+  holdFired=false;
+  clearTimeout(holdTimer);
+  scanBtn.classList.add('holding');
+  holdTimer=setTimeout(()=>{
+    holdFired=true;
+    scanBtn.classList.remove('holding');
+    if(navigator.vibrate) navigator.vibrate([14,60,14]);
+    openSheet();
+  },HOLD_MS);
+}
+function holdEnd(){
+  clearTimeout(holdTimer);
+  scanBtn.classList.remove('holding');
+  if(!holdFired) openFan();
+  holdFired=false;
+}
+function holdCancel(){
+  clearTimeout(holdTimer);
+  scanBtn.classList.remove('holding');
+  holdFired=false;
+}
+scanBtn.addEventListener('pointerdown',holdStart);
+scanBtn.addEventListener('pointerup',holdEnd);
+scanBtn.addEventListener('pointercancel',holdCancel);
+scanBtn.addEventListener('pointerleave',holdCancel);
+scanBtn.addEventListener('contextmenu',e=>e.preventDefault());
 
 $('btnOne').onclick=()=>{ pickInto='single'; closeFan(); $('camPick').click(); };
 $('btnGallery').onclick=()=>{ pickInto='single'; $('errArea').innerHTML=''; $('filePick').click(); };
@@ -1036,7 +1080,7 @@ $('btnRunAll').onclick=()=>{
 async function handleFiles(files){
   if(!files.length) return;
   if(!get(LS.key,'').trim()){
-    showError('לא הוגדר מפתח איי-פי-איי.','לחיצה ארוכה של 10 שניות על הסמל פותחת את מסך ההגדרות.');
+    showError('לא הוגדר מפתח איי-פי-איי.','החזקה של 10 שניות על כפתור הסריקה פותחת את מסך ההגדרות.');
     return;
   }
   $('btnScan').disabled=true;
@@ -1094,26 +1138,6 @@ async function handleFiles(files){
 /* ==========================================================
    מסך המפתח
    ========================================================== */
-/* מסך המנהל נפתח בלחיצה ארוכה של 10 שניות על הסמל.
-   הסמל מתחיל לזהור אחרי כשתי שניות כדי שיהיה ברור שההחזקה נקלטת. */
-const HOLD_MS=10000;
-let pressTimer=null;
-const mark=$('brandMark');
-function armPress(){
-  disarmPress();
-  mark.classList.add('holding');
-  pressTimer=setTimeout(()=>{ mark.classList.remove('holding'); openSheet(); },HOLD_MS);
-}
-function disarmPress(){ clearTimeout(pressTimer); pressTimer=null; mark.classList.remove('holding'); }
-mark.addEventListener('touchstart',armPress,{passive:true});
-mark.addEventListener('touchend',disarmPress);
-mark.addEventListener('touchcancel',disarmPress);
-mark.addEventListener('touchmove',disarmPress);
-mark.addEventListener('mousedown',armPress);
-mark.addEventListener('mouseup',disarmPress);
-mark.addEventListener('mouseleave',disarmPress);
-mark.addEventListener('contextmenu',e=>e.preventDefault());
-
 function openSheet(){
   if(navigator.vibrate) navigator.vibrate(18);
   const raw=get(LS.roster,'');
