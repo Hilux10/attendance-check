@@ -238,11 +238,54 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 .hint{font-size:12.5px;color:var(--text2);margin-top:7px;line-height:1.5}
 .ok-msg{font-size:13.5px;color:var(--ok);margin-top:11px;text-align:center}
 .bad-msg{font-size:13.5px;color:var(--err);margin-top:11px;text-align:center}
+
 .hidden{display:none!important}
+
+/* ---------- כניסה ל-Recon ---------- */
+.authgate{position:fixed;inset:0;z-index:120;background:#08090b;display:flex;align-items:center;justify-content:center;padding:24px;overflow-y:auto}
+.authbox{width:100%;max-width:420px;background:rgba(19,20,23,.96);border:1px solid var(--line);border-radius:24px;padding:24px;box-shadow:0 24px 80px rgba(0,0,0,.45)}
+.authbrand{display:flex;align-items:center;gap:10px;direction:ltr;margin-bottom:24px}
+.authbrand .amark{width:42px;height:42px;color:var(--hot)}
+.authbrand .aname{font-size:34px;font-weight:700;letter-spacing:-.02em}
+.authbrand .aname .o{color:var(--hot)}
+.authbox h2{margin:0 0 5px;font-size:22px}
+.authbox .asub{margin:0 0 20px;color:var(--text2);font-size:13.5px;line-height:1.5}
+.authbox select,.authbox input{font-family:inherit;font-size:16px;width:100%;padding:13px;border-radius:12px;border:1px solid var(--line);background:var(--card2);color:var(--text);outline:none}
+.authbox select:focus,.authbox input:focus{border-color:var(--accent)}
+.authbox .afield{margin-bottom:14px}
+.authbox .amsg{min-height:22px;margin-top:12px;text-align:center;font-size:13.5px;color:var(--text2)}
+.authbox .amsg.err{color:var(--err)}
+.authbox .amsg.ok{color:var(--ok)}
+.authbox .privacy{margin-top:16px;color:var(--gray);font-size:11.5px;text-align:center;line-height:1.5}
+
 @media (prefers-reduced-motion:reduce){.scanning .dial{animation:none}}
 </style>
 </head>
 <body>
+
+<div class="authgate" id="authGate">
+  <div class="authbox">
+    <div class="authbrand">
+      <svg class="amark" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linejoin="round" aria-hidden="true">
+        <path d="M20 6 6 24l14 18"/><path d="M30 6 44 24 30 42"/><path d="M30 6 16 24l14 18" opacity=".55"/>
+      </svg>
+      <div class="aname">Rec<span class="o">o</span>n</div>
+    </div>
+    <h2>כניסה למערכת</h2>
+    <p class="asub">בחר את שמך והזן את מספר הטלפון שהוגדר עבורך. לאחר הכניסה Recon תזכור את המכשיר הזה.</p>
+    <div class="afield">
+      <label>שם מלא</label>
+      <select id="loginName"><option value="">טוען משתמשים…</option></select>
+    </div>
+    <div class="afield">
+      <label>מספר טלפון</label>
+      <input id="loginPhone" type="tel" inputmode="numeric" autocomplete="tel" placeholder="05XXXXXXXX">
+    </div>
+    <button class="btn" id="btnLogin">כניסה</button>
+    <div class="amsg" id="loginMsg"></div>
+    <div class="privacy">מפתחות ה-API וה-GitHub אינם נשמרים בטלפון.</div>
+  </div>
+</div>
 
 <div class="bg"><div class="photo"></div><div class="glow"></div><div class="vign"></div></div>
 
@@ -329,7 +372,7 @@ input[type=range]{width:100%;accent-color:var(--accent)}
       </div>
       <div class="cell">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8.2 12.3l2.6 2.6 5-5.2"/></svg>
-        <div class="lab">מפתח</div>
+        <div class="lab">משתמש</div>
         <div class="val" id="stKey">—</div>
       </div>
     </div>
@@ -380,77 +423,29 @@ input[type=range]{width:100%;accent-color:var(--accent)}
   <input type="file" id="camPick" accept="image/*" capture="environment" class="hidden">
   <input type="file" id="filePick" accept="image/*" multiple class="hidden">
 </div>
-<!-- ============ מסך מפתח ============ -->
+<!-- ============ ניהול ---------- -->
 <div class="sheet" id="sheet">
   <div class="wrap" style="padding:0">
     <div class="sheet-top">
-      <h2>הגדרות מפתח</h2>
+      <h2>Recon</h2>
       <button class="x" id="btnCloseSheet">סגור</button>
     </div>
 
     <div class="card">
-      <h3>מקור הרשימה</h3>
-      <p class="sub">הרשימה נמשכת מקובץ CSV ברפוזיטורי הפרטי בגיטהאב, בכל פתיחה של האפליקציה. שלושת השדות נשמרים בטלפון הזה בלבד.</p>
-      <div class="field">
-        <label>רפוזיטורי</label>
-        <input type="text" id="ghRepo" dir="ltr" spellcheck="false" placeholder="Hilux10/attendance-roster">
-      </div>
-      <div class="field">
-        <label>שם הקובץ</label>
-        <input type="text" id="ghPath" dir="ltr" spellcheck="false" placeholder="roster.csv">
-      </div>
-      <div class="field">
-        <label>טוקן</label>
-        <input type="password" id="ghToken" dir="ltr" spellcheck="false" autocomplete="off" placeholder="github_pat_...">
-        <div class="hint">
-          <label style="display:inline;margin:0">
-            <input type="checkbox" id="showGh" style="width:auto;vertical-align:-2px"> הצג טוקן
-          </label>
-        </div>
-      </div>
-      <div class="brow">
-        <button class="btn small" id="btnSaveGh">שמירה</button>
-        <button class="btn small ghost" style="flex:0 0 44%" id="btnPull">משוך רשימה</button>
-      </div>
-      <div id="ghMsg"></div>
+      <h3>משתמש מחובר</h3>
+      <p class="sub" id="sheetUser">—</p>
+      <button class="btn small ghost" id="btnLogout">התנתקות מהמכשיר</button>
     </div>
 
     <div class="card">
-      <h3>רשימה ידנית</h3>
-      <p class="sub">גיבוי לשימוש ללא מסד נתונים. שם, מספר עובד ותפקיד מופרדים בטאב. משיכה מהענן דורסת את מה שכאן.</p>
-      <textarea id="rosterText" placeholder="פקלב נועה&#9;830044&#9;בודק בטחוני"></textarea>
-      <div class="brow">
-        <button class="btn small" id="btnSaveRoster">שמירה</button>
-        <button class="btn small ghost" style="flex:0 0 38%" id="btnClearRoster">מחיקה</button>
-      </div>
-      <div id="rosterMsg"></div>
-    </div>
-
-    <div class="card">
-      <h3>מפתח איי-פי-איי</h3>
-      <p class="sub">נשמר בטלפון הזה בלבד. נשלח רק לשרת של אנתרופיק.</p>
-      <div class="field">
-        <input type="password" id="apiKey" placeholder="sk-ant-..." autocomplete="off" spellcheck="false" dir="ltr">
-        <div class="hint">
-          <label style="display:inline;margin:0">
-            <input type="checkbox" id="showKey" style="width:auto;vertical-align:-2px"> הצג מפתח
-          </label>
-        </div>
-      </div>
-      <div class="field">
-        <label>מודל</label>
-        <input type="text" id="modelName" dir="ltr" spellcheck="false">
-      </div>
-      <div class="brow">
-        <button class="btn small" id="btnSaveKey">שמירה</button>
-        <button class="btn small ghost" style="flex:0 0 38%" id="btnTestKey">בדיקה</button>
-      </div>
-      <div id="keyMsg"></div>
+      <h3>ניהול מערכת</h3>
+      <p class="sub">מסך הניהול מוגן בסיסמת המנהל וכולל משתמשים ופעילות סריקות.</p>
+      <button class="btn small" id="btnOpenAdmin">פתח מסך מנהל</button>
     </div>
 
     <div class="card">
       <h3>רגישות ההשוואה</h3>
-      <p class="sub">כמה שוני בכתיב עדיין נחשב לאותו אדם.</p>
+      <p class="sub">כמה שוני בכתיב עדיין נחשב לאותו אדם במכשיר הזה.</p>
       <div class="field">
         <label>התאמה ודאית: <span id="thHighVal"></span></label>
         <input type="range" id="thHigh" min="70" max="98" step="1">
@@ -459,31 +454,94 @@ input[type=range]{width:100%;accent-color:var(--accent)}
         <label>התאמה מסופקת: <span id="thLowVal"></span></label>
         <input type="range" id="thLow" min="45" max="85" step="1">
       </div>
-      <div class="hint">מתחת לסף התחתון — השם יסומן כלא נמצא ברשימה.</div>
     </div>
 
     <div class="card">
       <h3>גרסה</h3>
-      <p class="sub" style="margin:0">Recon 2.8 · מסך המנהל נפתח בהחזקה של 10 שניות על כפתור הסריקה.</p>
+      <p class="sub" style="margin:0">Recon 3.0 · Backend מאובטח דרך Cloudflare.</p>
     </div>
   </div>
 </div>
 
 <script>
 /* ==========================================================
-   אחסון
+   אחסון + API
    ========================================================== */
-const LS={key:'ekbd.apikey',model:'ekbd.model',roster:'ekbd.roster',
-          thHigh:'ekbd.thHigh',thLow:'ekbd.thLow',
-          ghRepo:'ekbd.ghRepo',ghPath:'ekbd.ghPath',ghToken:'ekbd.ghToken',
-          rosterAt:'ekbd.rosterAt'};
-const DEFAULT_REPO='Hilux10/attendance-roster';
-const DEFAULT_PATH='roster.csv';
-const DEFAULT_MODEL='claude-sonnet-5';
+const API_BASE='https://recon-api.danielgoychaev.workers.dev';
+const LS={
+  roster:'ekbd.roster', rosterAt:'ekbd.rosterAt',
+  thHigh:'ekbd.thHigh', thLow:'ekbd.thLow',
+  token:'recon.session', device:'recon.device', user:'recon.user'
+};
 const get=(k,d='')=>{try{return localStorage.getItem(k)??d}catch(e){return d}};
 const set=(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}};
+const del=k=>{try{localStorage.removeItem(k)}catch(e){}};
 const $=id=>document.getElementById(id);
-const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const esc=s=>String(s??'').replace(/[&<>\"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;'}[c]));
+let currentUser=null;
+
+function deviceId(){
+  let id=get(LS.device,'');
+  if(!id){
+    id=(crypto.randomUUID?crypto.randomUUID():'recon-'+Date.now()+'-'+Math.random().toString(36).slice(2));
+    set(LS.device,id);
+  }
+  return id;
+}
+function authHeaders(extra={}){
+  const token=get(LS.token,'');
+  return {...extra,...(token?{'Authorization':'Bearer '+token}:{})};
+}
+async function apiJSON(path,opt={}){
+  opt.headers=authHeaders(opt.headers||{});
+  const res=await fetch(API_BASE+path,opt);
+  const data=await res.json().catch(()=>({ok:false,error:'תשובת שרת לא תקינה'}));
+  if(res.status===401 && path!=='/auth/login') clearSession(false);
+  if(!res.ok && data.ok!==false) data.ok=false;
+  return {res,data};
+}
+function clearSession(show=true){
+  del(LS.token); del(LS.user); currentUser=null;
+  if(show) showLogin();
+}
+function showLogin(){ $('authGate').classList.remove('hidden'); }
+function hideLogin(){ $('authGate').classList.add('hidden'); }
+async function loadLoginUsers(){
+  const sel=$('loginName');
+  sel.innerHTML='<option value="">טוען משתמשים…</option>';
+  try{
+    const res=await fetch(API_BASE+'/auth/users',{cache:'no-store'});
+    const data=await res.json();
+    if(!data.ok) throw new Error(data.error||'שגיאה');
+    sel.innerHTML='<option value="">בחר שם</option>'+data.users.map(n=>'<option value="'+esc(n)+'">'+esc(n)+'</option>').join('');
+  }catch(e){
+    sel.innerHTML='<option value="">לא ניתן לטעון משתמשים</option>';
+    $('loginMsg').textContent='אין חיבור לשרת Recon';
+    $('loginMsg').className='amsg err';
+  }
+}
+async function doLogin(){
+  const name=$('loginName').value.trim();
+  const phone=$('loginPhone').value.replace(/\D/g,'');
+  const msg=$('loginMsg');
+  if(!name||!phone){ msg.textContent='יש לבחור שם ולהזין מספר טלפון'; msg.className='amsg err'; return; }
+  msg.textContent='מתחבר…'; msg.className='amsg'; $('btnLogin').disabled=true;
+  try{
+    const {data}=await apiJSON('/auth/login',{
+      method:'POST', headers:{'content-type':'application/json'},
+      body:JSON.stringify({full_name:name,password:phone,device_id:deviceId()})
+    });
+    if(!data.ok) throw new Error(data.error||'התחברות נכשלה');
+    set(LS.token,data.token); set(LS.user,JSON.stringify(data.user)); currentUser=data.user;
+    $('loginPhone').value=''; msg.textContent='מחובר ✓'; msg.className='amsg ok'; hideLogin();
+    await refreshRoster(true);
+    updateHomeNote();
+  }catch(e){ msg.textContent=e.message; msg.className='amsg err'; }
+  finally{$('btnLogin').disabled=false;}
+}
+$('btnLogin').onclick=doLogin;
+$('loginPhone').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
+
 
 /* ==========================================================
    נרמול שמות בעברית
@@ -578,42 +636,37 @@ function saveRoster(list){
   roster=list;
 }
 
-/* ---------- משיכה מגיטהאב ----------
-   הקובץ יושב ברפוזיטורי פרטי; הטוקן (קריאה בלבד) שמור בטלפון. */
-function ghReady(){
-  return !!(get(LS.ghRepo,DEFAULT_REPO).trim() && get(LS.ghToken,'').trim());
-}
+/* ---------- רשימת העובדים דרך השרת ---------- */
 function parseCSVLine(line){
   const out=[]; let cur='', q=false;
   for(let i=0;i<line.length;i++){
     const ch=line[i];
     if(q){
-      if(ch==='"' && line[i+1]==='"'){ cur+='"'; i++; }
-      else if(ch==='"'){ q=false; }
+      if(ch==='"' && line[i+1]==='"'){cur+='"';i++;}
+      else if(ch==='"') q=false;
       else cur+=ch;
-    } else {
+    }else{
       if(ch==='"') q=true;
-      else if(ch===','){ out.push(cur); cur=''; }
+      else if(ch===','){out.push(cur);cur='';}
       else cur+=ch;
     }
   }
-  out.push(cur);
-  return out.map(v=>v.trim());
+  out.push(cur); return out.map(v=>v.trim());
 }
 function parseCSV(text){
   const lines=text.replace(/^\uFEFF/,'').split(/\r?\n/).filter(l=>l.trim());
   if(!lines.length) return [];
   const head=parseCSVLine(lines[0]).map(h=>h.toLowerCase());
   const iName=head.findIndex(h=>/name|שם/.test(h));
-  const iNum =head.findIndex(h=>/emp_number|number|מספר/.test(h));
+  const iNum=head.findIndex(h=>/emp_number|number|מספר/.test(h));
   const iRole=head.findIndex(h=>/role|תפקיד/.test(h));
-  const iAct =head.findIndex(h=>/active|פעיל/.test(h));
-  if(iName<0||iNum<0) throw new Error('כותרות הקובץ לא תקינות — צריך name ו-emp_number');
+  const iAct=head.findIndex(h=>/active|פעיל/.test(h));
+  if(iName<0||iNum<0) throw new Error('כותרות קובץ העובדים אינן תקינות');
   const out=[];
   for(let i=1;i<lines.length;i++){
     const c=parseCSVLine(lines[i]);
     const name=(c[iName]||'').trim();
-    const num =(c[iNum]||'').replace(/\D/g,'');
+    const num=(c[iNum]||'').replace(/\D/g,'');
     if(!name||!num) continue;
     if(iAct>=0 && /^(false|0|לא)$/i.test((c[iAct]||'').trim())) continue;
     out.push(buildEntry(name,num,iRole>=0?c[iRole]:''));
@@ -621,31 +674,22 @@ function parseCSV(text){
   return out;
 }
 async function fetchRoster(){
-  const repo =(get(LS.ghRepo,DEFAULT_REPO)||DEFAULT_REPO).trim().replace(/^\/+|\/+$/g,'');
-  const path =(get(LS.ghPath,DEFAULT_PATH)||DEFAULT_PATH).trim().replace(/^\/+/,'');
-  const token= get(LS.ghToken,'').trim();
-  if(!repo||!token) throw new Error('הרפוזיטורי או הטוקן לא הוגדרו');
-  const url='https://api.github.com/repos/'+repo+'/contents/'+encodeURIComponent(path)+'?ref=main';
-  let res;
-  try{
-    res=await fetch(url,{
-      cache:'no-store',
-      headers:{'Authorization':'Bearer '+token,'Accept':'application/vnd.github.raw'}
-    });
-  }catch(e){ throw new Error('אין חיבור לרשת'); }
-  if(res.status===401) throw new Error('הטוקן שגוי או פג תוקף');
-  if(res.status===404) throw new Error('הקובץ לא נמצא — בדוק את שם הרפוזיטורי והקובץ');
-  if(res.status===403) throw new Error('אין הרשאה — ודא שהטוקן כולל Contents: Read-only');
-  if(!res.ok) throw new Error('שגיאת גיטהאב '+res.status);
+  const token=get(LS.token,'');
+  if(!token) throw new Error('לא מחובר');
+  const res=await fetch(API_BASE+'/roster',{cache:'no-store',headers:authHeaders()});
+  if(res.status===401){clearSession();throw new Error('יש להתחבר מחדש');}
+  if(!res.ok){
+    const d=await res.json().catch(()=>null);
+    throw new Error((d&&d.error)||('שגיאת שרת '+res.status));
+  }
   const text=await res.text();
   const list=parseCSV(text);
-  if(!list.length) throw new Error('לא נמצאו שורות תקינות בקובץ');
-  saveRoster(list);
-  return list.length;
+  if(!list.length) throw new Error('לא נמצאו עובדים ברשימה');
+  saveRoster(list); return list.length;
 }
-function refreshQuiet(){
-  if(!ghReady()) return;
-  fetchRoster().then(()=>updateHomeNote()).catch(()=>{});
+async function refreshRoster(loud=false){
+  try{await fetchRoster();updateHomeNote();}
+  catch(e){if(loud) showError('טעינת רשימת העובדים נכשלה: '+e.message);}
 }
 function rosterWhen(){
   const iso=get(LS.rosterAt,''); if(!iso) return '';
@@ -719,47 +763,25 @@ function compare(rows){
 }
 
 /* ==========================================================
-   קריאה לאיי-פי-איי
+   קריאה ל-Recon API
    ========================================================== */
-async function callClaude(content,maxTokens){
-  const key=get(LS.key,'').trim();
-  if(!key) throw new Error('לא הוגדר מפתח איי-פי-איי');
-  const model=get(LS.model,DEFAULT_MODEL)||DEFAULT_MODEL;
-  const res=await fetch('https://api.anthropic.com/v1/messages',{
+async function runServerScan(images,source){
+  const {res,data}=await apiJSON('/scan',{
     method:'POST',
-    headers:{
-      'content-type':'application/json',
-      'x-api-key':key,
-      'anthropic-version':'2023-06-01',
-      'anthropic-dangerous-direct-browser-access':'true'
-    },
-    body:JSON.stringify({model,max_tokens:maxTokens||4000,messages:[{role:'user',content}]})
+    headers:{'content-type':'application/json'},
+    body:JSON.stringify({images:images.map(i=>({media_type:i.media,data:i.b64})),source})
   });
-  const data=await res.json().catch(()=>null);
-  if(!res.ok) throw new Error((data&&data.error&&data.error.message)||('HTTP '+res.status));
-  return (data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('\n');
+  if(!res.ok||!data.ok) throw new Error(data.error||data.detail||('HTTP '+res.status));
+  return data;
 }
-const EXTRACT_PROMPT=`בתמונה מופיע דו״ח התייצבות בעברית בפורמט טבלה (לרוב צילום מסך של אקסל).
-העמודות הרלוונטיות: "מס' עובד" ו"שם הבודק", ולצידן "תחנה".
-
-הוצא כל שורה שמופיע בה שם של אדם בעמודת "שם הבודק".
-כללים:
-- שורה בלי שם — דלג עליה לגמרי.
-- דלג על שורות סיכום (למשל "סה\\"כ שעות תקן קב\\"ט") ועל שורת הכותרת.
-- אם יש שם אבל תא מספר העובד ריק — החזר employee_number כמחרוזת ריקה.
-- employee_number: ספרות בלבד, בדיוק כפי שמופיע.
-- name: העתק את השם בדיוק כפי שכתוב, בלי לתקן שגיאות כתיב ובלי להשלים אותיות.
-- station: שם התחנה באותה שורה, אם קיים.
-
-החזר JSON בלבד, בלי טקסט לפני או אחרי ובלי סימוני מרקדאון:
-{"rows":[{"station":"","name":"","employee_number":""}]}`;
-
-function parseJSONLoose(txt){
-  let t=txt.trim().replace(/^```(?:json)?/i,'').replace(/```$/,'').trim();
-  try{ return JSON.parse(t); }catch(e){}
-  const s=t.indexOf('{'), e=t.lastIndexOf('}');
-  if(s>=0&&e>s){ try{ return JSON.parse(t.slice(s,e+1)); }catch(err){} }
-  throw new Error('התשובה מהמודל לא הגיעה כ-JSON תקין');
+async function completeScan(eventId,issues){
+  if(!eventId) return;
+  try{
+    await apiJSON('/scan/complete',{
+      method:'POST',headers:{'content-type':'application/json'},
+      body:JSON.stringify({event_id:eventId,issues_count:issues})
+    });
+  }catch(e){}
 }
 
 /* ==========================================================
@@ -911,7 +933,7 @@ function render(results){
     });
     $('restWrap').innerHTML=h;
   };
-  $('btnAgain').onclick=()=>{ resetHome(); $('camPick').click(); };
+  $('btnAgain').onclick=()=>{ resetHome(); pickInto='single'; $('camPick').click(); };
   $('btnBack').onclick=resetHome;
 }
 
@@ -946,14 +968,13 @@ function showError(msg,hint){
   $('errArea').innerHTML='<div class="errbox">'+esc(msg)+(hint?'<br><br>'+esc(hint):'')+'</div>';
 }
 function updateHomeNote(){
-  const n=roster.length, hasKey=!!get(LS.key,'').trim();
-  $('stRoster').textContent = n ? n+' עובדים' : 'לא נטענה';
-  $('stWhen').textContent   = (rosterWhen()||'—').replace(/^עודכן\s*/,'');
-  $('stKey').textContent    = hasKey ? 'מוגדר' : 'חסר';
-  if(!hasKey||!n){
-    const miss=[]; if(!hasKey) miss.push('מפתח איי-פי-איי'); if(!n) miss.push('רשימת עובדים');
-    $('homeNote').innerHTML='חסר: '+miss.join(' ו')+'.<br>החזקה של 10 שניות על כפתור הסריקה פותחת הגדרות.';
-  } else {
+  const n=roster.length;
+  $('stRoster').textContent=n?n+' עובדים':'לא נטענה';
+  $('stWhen').textContent=(rosterWhen()||'—').replace(/^עודכן\s*/,'');
+  $('stKey').textContent=currentUser?currentUser.full_name.split(' ')[0]:'לא מחובר';
+  if(!n){
+    $('homeNote').textContent='רשימת העובדים עדיין לא נטענה מהשרת.';
+  }else{
     $('homeNote').textContent='';
   }
 }
@@ -1060,10 +1081,10 @@ function renderTray(){
     ? 'סרוק '+queue.length+' '+(queue.length===1?'תמונה':'תמונות')
     : 'סרוק הכל';
 }
-function addToQueue(files){
+function addToQueue(files,source){
   for(const f of files){
     if(queue.length>=MAX_SHOTS) break;
-    queue.push({file:f,url:URL.createObjectURL(f)});
+    queue.push({file:f,url:URL.createObjectURL(f),source});
   }
   renderTray();
 }
@@ -1074,13 +1095,15 @@ $('btnRunAll').onclick=()=>{
   if(!queue.length) return;
   document.body.classList.remove('tray');
   $('tray').classList.add('hidden');
-  handleFiles(queue.map(q=>q.file));
+  const sources=[...new Set(queue.map(q=>q.source))];
+  const source=sources.length===1?sources[0]:'mixed';
+  handleFiles(queue.map(q=>q.file),source);
 };
 
-async function handleFiles(files){
+async function handleFiles(files,source='camera'){
   if(!files.length) return;
-  if(!get(LS.key,'').trim()){
-    showError('לא הוגדר מפתח איי-פי-איי.','החזקה של 10 שניות על כפתור הסריקה פותחת את מסך ההגדרות.');
+  if(!get(LS.token,'').trim()){
+    showLogin();
     return;
   }
   $('btnScan').disabled=true;
@@ -1092,34 +1115,20 @@ async function handleFiles(files){
   $('results').classList.add('hidden');
   $('working').classList.remove('hidden');
 
-  const all=[];
   try{
     const imgs=[];
-    $('workText').textContent='מכין את התמונה…';
+    $('workText').textContent='מכין '+(files.length===1?'את התמונה':'את התמונות')+'…';
     for(const f of files) imgs.push(await resizeImage(f));
     $('thumbs').innerHTML=imgs.map(i=>'<img src="'+i.dataUrl+'">').join('');
 
-    for(let i=0;i<imgs.length;i++){
-      $('workText').textContent = imgs.length>1
-        ? 'קורא תמונה '+(i+1)+' מתוך '+imgs.length+'…'
-        : 'קורא את הדו״ח…';
-      const txt=await callClaude([
-        {type:'image',source:{type:'base64',media_type:imgs[i].media,data:imgs[i].b64}},
-        {type:'text',text:EXTRACT_PROMPT}
-      ],4000);
-      const p=parseJSONLoose(txt);
-      (p.rows||[]).forEach(r=>{ if(r&&(r.name||'').trim()) all.push(r); });
-    }
-    /* תמונות סמוכות מצלמות לעיתים את אותה שורה פעמיים */
-    const seen=new Set();
-    const rows=all.filter(r=>{
-      const k=normName(r.name)+'|'+String(r.employee_number||'').replace(/\D/g,'');
-      if(seen.has(k)) return false;
-      seen.add(k); return true;
-    });
+    $('workText').textContent=imgs.length>1?'קורא '+imgs.length+' תמונות…':'קורא את הדו״ח…';
+    const data=await runServerScan(imgs,source);
     $('workText').textContent='משווה מול הרשימה…';
+    const compared=compare(data.rows||[]);
+    const issues=compared.filter(r=>['wrong','unsure_bad','notfound','unsure'].includes(r.status)).length;
     $('working').classList.add('hidden');
-    render(compare(rows));
+    render(compared);
+    completeScan(data.event_id,issues);
   }catch(err){
     showError('הסריקה נכשלה: '+err.message);
   }
@@ -1130,85 +1139,27 @@ async function handleFiles(files){
     const files=Array.from(e.target.files||[]).filter(f=>f.type.startsWith('image/'));
     e.target.value='';
     if(!files.length) return;
-    if(pickInto==='tray'){ addToQueue(files); return; }
-    await handleFiles(files);
+    const source=id==='camPick'?'camera':'gallery';
+    if(pickInto==='tray'){addToQueue(files,source);return;}
+    await handleFiles(files,source);
   };
 });
 
 /* ==========================================================
-   מסך המפתח
+   מסך ניהול מקומי
    ========================================================== */
 function openSheet(){
   if(navigator.vibrate) navigator.vibrate(18);
-  const raw=get(LS.roster,'');
-  if(raw){
-    try{
-      $('rosterText').value=JSON.parse(raw)
-        .map(r=>r.name+'\t'+r.num+(r.role?'\t'+r.role:'')).join('\n');
-    }catch(e){}
-  }
-  $('apiKey').value=get(LS.key,'');
-  $('modelName').value=get(LS.model,DEFAULT_MODEL);
-  $('ghRepo').value=get(LS.ghRepo,DEFAULT_REPO);
-  $('ghPath').value=get(LS.ghPath,DEFAULT_PATH);
-  $('ghToken').value=get(LS.ghToken,'');
+  $('sheetUser').textContent=currentUser?currentUser.full_name:'לא מחובר';
   $('sheet').classList.add('open');
 }
-$('btnCloseSheet').onclick=()=>{ $('sheet').classList.remove('open'); updateHomeNote(); };
-
-$('btnSaveRoster').onclick=()=>{
-  const p=parseRoster($('rosterText').value);
-  if(!p.length){ $('rosterMsg').innerHTML='<div class="bad-msg">לא זוהו שורות תקינות.</div>'; return; }
-  saveRoster(p);
-  $('rosterMsg').innerHTML='<div class="ok-msg">נשמרו '+p.length+' עובדים ✓</div>';
-  updateHomeNote();
-};
-$('btnClearRoster').onclick=()=>{
-  if(!confirm('למחוק את רשימת העובדים?')) return;
-  set(LS.roster,''); roster=[]; $('rosterText').value='';
-  $('rosterMsg').innerHTML='<div class="ok-msg">נמחק</div>';
-  updateHomeNote();
-};
-$('showGh').onchange=e=>{ $('ghToken').type=e.target.checked?'text':'password'; };
-function saveGh(){
-  set(LS.ghRepo,$('ghRepo').value.trim()||DEFAULT_REPO);
-  set(LS.ghPath,$('ghPath').value.trim()||DEFAULT_PATH);
-  set(LS.ghToken,$('ghToken').value.trim());
-}
-$('btnSaveGh').onclick=()=>{
-  saveGh();
-  $('ghMsg').innerHTML='<div class="ok-msg">נשמר ✓</div>';
-};
-$('btnPull').onclick=async()=>{
-  saveGh();
-  $('ghMsg').innerHTML='<div class="ok-msg">מושך…</div>';
-  try{
-    const n=await fetchRoster();
-    $('ghMsg').innerHTML='<div class="ok-msg">נמשכו '+n+' עובדים ✓</div>';
-    $('rosterText').value=roster.map(r=>r.name+'\t'+r.num+(r.role?'\t'+r.role:'')).join('\n');
-    updateHomeNote();
-  }catch(e){
-    $('ghMsg').innerHTML='<div class="bad-msg">'+esc(e.message)+'</div>';
-  }
-};
-$('showKey').onchange=e=>{ $('apiKey').type=e.target.checked?'text':'password'; };
-$('btnSaveKey').onclick=()=>{
-  set(LS.key,$('apiKey').value.trim());
-  set(LS.model,$('modelName').value.trim()||DEFAULT_MODEL);
-  $('keyMsg').innerHTML='<div class="ok-msg">נשמר ✓</div>';
-  updateHomeNote();
-};
-$('btnTestKey').onclick=async()=>{
-  set(LS.key,$('apiKey').value.trim());
-  set(LS.model,$('modelName').value.trim()||DEFAULT_MODEL);
-  $('keyMsg').innerHTML='<div class="ok-msg">בודק…</div>';
-  try{
-    await callClaude([{type:'text',text:'ענה במילה אחת: תקין'}],20);
-    $('keyMsg').innerHTML='<div class="ok-msg">המפתח עובד ✓</div>';
-  }catch(e){
-    $('keyMsg').innerHTML='<div class="bad-msg">'+esc(e.message)+'</div>';
-  }
-  updateHomeNote();
+$('btnCloseSheet').onclick=()=>{$('sheet').classList.remove('open');updateHomeNote();};
+$('btnOpenAdmin').onclick=()=>window.open(API_BASE+'/admin','_blank','noopener');
+$('btnLogout').onclick=async()=>{
+  try{await apiJSON('/auth/logout',{method:'POST'});}catch(e){}
+  $('sheet').classList.remove('open');
+  clearSession(true);
+  await loadLoginUsers();
 };
 ['thHigh','thLow'].forEach(id=>{
   const el=$(id), lbl=$(id+'Val'), dflt=id==='thHigh'?'86':'68';
@@ -1220,9 +1171,24 @@ $('btnTestKey').onclick=async()=>{
 /* ==========================================================
    אתחול
    ========================================================== */
-loadRoster();
-updateHomeNote();
-refreshQuiet();
+async function bootstrap(){
+  /* מוחק מפתחות ישנים אם נשארו מגרסה קודמת בטלפון */
+  ['ekbd.apikey','ekbd.model','ekbd.ghRepo','ekbd.ghPath','ekbd.ghToken'].forEach(k=>{try{localStorage.removeItem(k)}catch(e){}});
+  loadRoster();
+  try{currentUser=JSON.parse(get(LS.user,'null'));}catch(e){currentUser=null;}
+  const token=get(LS.token,'');
+  if(token){
+    try{
+      const {res,data}=await apiJSON('/auth/me');
+      if(res.ok&&data.ok){
+        currentUser=data.user; set(LS.user,JSON.stringify(data.user)); hideLogin();
+        updateHomeNote(); refreshRoster(false); return;
+      }
+    }catch(e){}
+  }
+  clearSession(false); showLogin(); updateHomeNote(); await loadLoginUsers();
+}
+bootstrap();
 if('serviceWorker' in navigator){
   window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
 }
