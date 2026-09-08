@@ -481,7 +481,7 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 
     <div class="card">
       <h3>גרסה</h3>
-      <p class="sub" style="margin:0">Recon 3.1 · הוספת עובדים ידנית · השוואת שמות מקלה.</p>
+      <p class="sub" style="margin:0">Recon 3.2 · הוספת עובדים ידנית · ארבע רמות ודאות.</p>
     </div>
   </div>
 </div>
@@ -850,7 +850,10 @@ function compare(rows){
       if(credible && best.entry!==owner){
         out.match=best.entry; out.score=best.score; out.status='wrong'; return out;
       }
-      out.status='name_warn';
+      /* אין אף מילה משותפת ואין מועמד אחר —
+         ייתכן שהממלא שגה גם בשם הפרטי וגם במשפחה.
+         לא קובעים שהמספר תקין, אלא מסמנים לבדיקה. */
+      out.status='unsure';
       return out;
     }
 
@@ -922,9 +925,9 @@ const ICON_MID='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strok
 const GROUPS=[
   {k:'wrong',      t:'מספר עובד שגוי',                         d:'err'},
   {k:'unsure_bad', t:'מספר לא תואם — נדרשת בדיקה',             d:'err'},
-  {k:'name_warn',  t:'השם אינו תואם במלואו — המספר תקין',      d:'warn'},
+  {k:'name_warn',  t:'השם כתוב אחרת — המספר תקין',              d:'warn'},
   {k:'notfound',   t:'שם שלא נמצא ברשימה',                     d:'gray'},
-  {k:'unsure',     t:'התאמה חלקית — נדרשת בדיקה',               d:'warn'},
+  {k:'unsure',     t:'השם אינו מתאים למספר — יש לאמת',          d:'warn'},
   {k:'missing',    t:'טרם נפתחה משמרת — ללא מספר',             d:'gray'},
   {k:'ok',         t:'תקין',                                   d:'ok'}
 ];
@@ -967,7 +970,9 @@ function rowHTML(r,g){
     meta='במערכת רשום: '+r.match.name+' · המספר תקין';
     ncls='ok'; card='warn';
   } else if(g.k==='unsure'){
-    meta=guess();
+    meta = (r.owner&&r.match===r.owner)
+      ? 'המספר שייך ל'+r.match.name+' · השם בדו״ח שונה לחלוטין'
+      : guess();
     ncls='ok'; card='warn';
   } else if(g.k==='missing'){
     meta=[r.station,r.match.role,'במערכת: '+r.match.num].filter(Boolean).join(' · ');

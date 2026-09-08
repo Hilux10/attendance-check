@@ -1,5 +1,5 @@
 /* Recon service worker — מעדיף גרסה חדשה של האפליקציה ושומר מעטפת לעבודה מהירה. */
-const CACHE = 'recon-v10-manual-add';
+const CACHE = 'recon-v11-doubt-level';
 const SHELL = [
   './',
   './index.html',
