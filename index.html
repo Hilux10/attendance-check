@@ -728,36 +728,99 @@ function bestMatch(name){
 function compare(rows){
   const thHigh=parseInt(get(LS.thHigh,'86'),10)/100;
   const thLow =parseInt(get(LS.thLow,'68'),10)/100;
+
   return rows.map(r=>{
     const name=(r.name||'').trim();
     const num=String(r.employee_number||'').replace(/\D/g,'');
-    let {best,second}=bestMatch(name);
+    const station=(r.station||'').trim();
 
-    /* מספר העובד כרמז: אם המספר שבדו״ח קיים ברשימה והשם שלידו
-       דומה מספיק — זו ההתאמה הנכונה. */
-    const owner=num?roster.find(x=>x.num===num):null;
-    if(owner&&owner!==best.entry){
-      const os=scoreAgainst(name,owner);
-      if(os>=thLow && best.score-os<0.10){ second=best; best={score:os,entry:owner}; }
+    if(!roster.length){
+      return {name,num,station,status:'noroster',match:null,score:0,owner:null};
     }
-    const out={name,num,station:(r.station||'').trim(),
-               match:best.entry,score:best.score,owner};
-    if(!roster.length){ out.status='noroster'; return out; }
-    if(best.score<thLow||!best.entry){ out.status='notfound'; return out; }
 
-    /* התאמה לא ודאית — או בגלל ציון נמוך, או בגלל שני מועמדים צמודים.
-       אם בנוסף המספר בדו״ח שונה מהמספר שברשימה, זו חריגה לכל דבר
-       ולא סתם "דורש בדיקה" — לכן היא מקבלת סטטוס נפרד. */
-    const closeCall = second.entry && second.entry!==best.entry && (best.score-second.score)<0.03;
+    const {best,second}=bestMatch(name);
+    const owner=num ? roster.find(x=>x.num===num) : null;
+
+    /*
+      כלל מרכזי:
+      אם מספר העובד שמופיע בדו"ח קיים ברשימה — המספר הוא העוגן.
+      לא מנחשים בין עובדים אחרים רק בגלל דמיון בשם.
+
+      1. מספר + שם תואמים -> תקין.
+      2. המספר תואם אבל השם/שם המשפחה אינו תואם במלואו -> אזהרה צהובה בלבד.
+      3. המספר אינו שייך לעובד/אינו קיים -> חריגה אדומה.
+    */
+    if(owner){
+      const ownerScore=scoreAgainst(name,owner);
+      const n=normName(name);
+      const exactName =
+        n===owner._n ||
+        sortTokens(n)===owner._nS;
+
+      const out={
+        name,num,station,
+        match:owner,
+        owner,
+        score:ownerScore
+      };
+
+      if(exactName){
+        out.status='ok';
+      }else{
+        out.status='name_warn';
+      }
+      return out;
+    }
+
+    /* אין מספר בדו"ח */
+    if(!num){
+      const out={name,num,station,match:best.entry,score:best.score,owner:null};
+
+      if(!best.entry || best.score<thLow){
+        out.status='notfound';
+        return out;
+      }
+
+      const closeCall =
+        second.entry &&
+        second.entry!==best.entry &&
+        (best.score-second.score)<0.03;
+
+      if(best.score<thHigh || closeCall){
+        out.alt=second.entry;
+        out.ambiguous=closeCall;
+        out.status='unsure';
+        return out;
+      }
+
+      out.status='missing';
+      return out;
+    }
+
+    /*
+      יש מספר בדו"ח אבל הוא לא קיים ברשימה.
+      כאן זו חריגה — גם אם השם נראה דומה לעובד מסוים.
+    */
+    const out={name,num,station,match:best.entry,score:best.score,owner:null};
+
+    if(!best.entry || best.score<thLow){
+      out.status='wrong';
+      return out;
+    }
+
+    const closeCall =
+      second.entry &&
+      second.entry!==best.entry &&
+      (best.score-second.score)<0.03;
+
     if(best.score<thHigh || closeCall){
       out.alt=second.entry;
       out.ambiguous=closeCall;
-      out.numOk = !num || best.entry.num===num;
-      out.status = out.numOk ? 'unsure' : 'unsure_bad';
+      out.status='unsure_bad';
       return out;
     }
-    if(!num){ out.status='missing'; return out; }   /* משמרת שטרם נפתחה */
-    out.status = best.entry.num===num ? 'ok' : 'wrong';
+
+    out.status='wrong';
     return out;
   });
 }
@@ -820,12 +883,13 @@ const ICON_BAD='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strok
 const ICON_MID='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8v5M12 17h.01"/><circle cx="12" cy="12" r="9"/></svg>';
 
 const GROUPS=[
-  {k:'wrong',      t:'מספר עובד שגוי',                 d:'err'},
-  {k:'unsure_bad', t:'מספר לא תואם — נדרשת בדיקה',     d:'err'},
-  {k:'notfound',   t:'שם שלא נמצא ברשימה',             d:'gray'},
-  {k:'unsure',     t:'התאמה חלקית — נדרשת בדיקה',       d:'warn'},
-  {k:'missing',    t:'טרם נפתחה משמרת — ללא מספר',     d:'gray'},
-  {k:'ok',         t:'תקין',                           d:'ok'}
+  {k:'wrong',      t:'מספר עובד שגוי',                         d:'err'},
+  {k:'unsure_bad', t:'מספר לא תואם — נדרשת בדיקה',             d:'err'},
+  {k:'name_warn',  t:'השם אינו תואם במלואו — המספר תקין',      d:'warn'},
+  {k:'notfound',   t:'שם שלא נמצא ברשימה',                     d:'gray'},
+  {k:'unsure',     t:'התאמה חלקית — נדרשת בדיקה',               d:'warn'},
+  {k:'missing',    t:'טרם נפתחה משמרת — ללא מספר',             d:'gray'},
+  {k:'ok',         t:'תקין',                                   d:'ok'}
 ];
 let lastResults=[];
 
@@ -851,11 +915,22 @@ function rowHTML(r,g){
     meta=[r.station,r.match.role].filter(Boolean).join(' · ');
     ncls='ok'; card='ok';
   } else if(g.k==='wrong'){
-    meta=(r.owner&&r.owner!==r.match)?r.num+' שייך ל'+r.owner.name:(r.station||r.match.role||'');
-    stack=stackHTML(r.num,r.match.num); card='err';
+    if(r.match){
+      meta=r.station||('לפי השם, המספר הצפוי הוא '+r.match.num);
+      stack=stackHTML(r.num,r.match.num);
+    }else{
+      meta='מספר העובד אינו קיים ברשימה ולא נמצאה התאמת שם מספקת';
+      num=r.num||'—'; ncls='err';
+    }
+    card='err';
   } else if(g.k==='unsure_bad'){
     meta=guess();
-    stack=stackHTML(r.num,r.match.num); card='err';
+    stack=r.match ? stackHTML(r.num,r.match.num) : '';
+    if(!r.match){ meta='מספר העובד אינו קיים ברשימה'; num=r.num||'—'; ncls='err'; }
+    card='err';
+  } else if(g.k==='name_warn'){
+    meta='המספר תואם ל'+r.match.name+' · השם בדו״ח אינו תואם במלואו למערכת';
+    ncls='ok'; card='warn';
   } else if(g.k==='unsure'){
     meta=guess();
     ncls='ok'; card='warn';
@@ -881,7 +956,7 @@ function render(results){
   lastResults=results;
   const c=k=>results.filter(r=>r.status===k).length;
   const mismatches=c('wrong')+c('unsure_bad');
-  const problems=mismatches+c('notfound')+c('unsure');
+  const problems=mismatches+c('name_warn')+c('notfound')+c('unsure');
   const total=results.length;
 
   let html='<div class="rhead"><span class="sp"></span>'+
@@ -902,7 +977,7 @@ function render(results){
   } else {
     html+='<div class="verdict mid"><div class="icon">'+ICON_MID+'</div>'+
           '<h2>'+problems+' '+(problems===1?'שורה לבדיקה':'שורות לבדיקה')+'</h2>'+
-          '<p>ייתכנו טעויות במספרי עובד · נדרשת בדיקה ידנית<br>'+total+' שורות נבדקו</p></div>';
+          '<p>נמצאה אי-התאמה בשם או שורה הדורשת בדיקה ידנית<br>'+total+' שורות נבדקו</p></div>';
   }
 
   GROUPS.forEach(g=>{
@@ -1125,7 +1200,7 @@ async function handleFiles(files,source='camera'){
     const data=await runServerScan(imgs,source);
     $('workText').textContent='משווה מול הרשימה…';
     const compared=compare(data.rows||[]);
-    const issues=compared.filter(r=>['wrong','unsure_bad','notfound','unsure'].includes(r.status)).length;
+    const issues=compared.filter(r=>['wrong','unsure_bad','name_warn','notfound','unsure'].includes(r.status)).length;
     $('working').classList.add('hidden');
     render(compared);
     completeScan(data.event_id,issues);
