@@ -738,89 +738,52 @@ function compare(rows){
       return {name,num,station,status:'noroster',match:null,score:0,owner:null};
     }
 
-    const {best,second}=bestMatch(name);
-    const owner=num ? roster.find(x=>x.num===num) : null;
+    let {best,second}=bestMatch(name);
+    const owner = num ? roster.find(x=>x.num===num) : null;
 
-    /*
-      כלל מרכזי:
-      אם מספר העובד שמופיע בדו"ח קיים ברשימה — המספר הוא העוגן.
-      לא מנחשים בין עובדים אחרים רק בגלל דמיון בשם.
-
-      1. מספר + שם תואמים -> תקין.
-      2. המספר תואם אבל השם/שם המשפחה אינו תואם במלואו -> אזהרה צהובה בלבד.
-      3. המספר אינו שייך לעובד/אינו קיים -> חריגה אדומה.
-    */
-    if(owner){
-      const ownerScore=scoreAgainst(name,owner);
-      const n=normName(name);
-      const exactName =
-        n===owner._n ||
-        sortTokens(n)===owner._nS;
-
-      const out={
-        name,num,station,
-        match:owner,
-        owner,
-        score:ownerScore
-      };
-
-      if(exactName){
-        out.status='ok';
-      }else{
-        out.status='name_warn';
-      }
-      return out;
+    /* מספר העובד כרמז מסייע בלבד:
+       אם המספר שבדו"ח שייך לעובד שהשם שלו דומה כמעט כמו המועמד המוביל,
+       מעדיפים אותו. זה מפריד בין שמות דומים — אבל לעולם לא הופך
+       מספר שגוי לתקין, כי הדמיון חייב לעבור את הסף. */
+    if(owner && owner!==best.entry){
+      const os=scoreAgainst(name,owner);
+      if(os>=thLow && best.score-os<0.10){ second=best; best={score:os,entry:owner}; }
     }
 
-    /* אין מספר בדו"ח */
+    const out={name,num,station,match:best.entry,score:best.score,owner};
+    const closeCall = second.entry && second.entry!==best.entry &&
+                      (best.score-second.score)<0.03;
+
+    /* אין מספר בדו"ח — משמרת שטרם נפתחה */
     if(!num){
-      const out={name,num,station,match:best.entry,score:best.score,owner:null};
-
-      if(!best.entry || best.score<thLow){
-        out.status='notfound';
-        return out;
-      }
-
-      const closeCall =
-        second.entry &&
-        second.entry!==best.entry &&
-        (best.score-second.score)<0.03;
-
+      if(!best.entry || best.score<thLow){ out.status='notfound'; return out; }
       if(best.score<thHigh || closeCall){
-        out.alt=second.entry;
-        out.ambiguous=closeCall;
-        out.status='unsure';
-        return out;
+        out.alt=second.entry; out.ambiguous=closeCall; out.status='unsure'; return out;
       }
-
       out.status='missing';
       return out;
     }
 
-    /*
-      יש מספר בדו"ח אבל הוא לא קיים ברשימה.
-      כאן זו חריגה — גם אם השם נראה דומה לעובד מסוים.
-    */
-    const out={name,num,station,match:best.entry,score:best.score,owner:null};
-
+    /* יש מספר, אבל השם לא זוהה ברשימה כלל */
     if(!best.entry || best.score<thLow){
+      if(owner){ out.match=owner; out.score=scoreAgainst(name,owner); out.status='name_warn'; return out; }
+      out.status='notfound';
+      return out;
+    }
+
+    /* השם זוהה — עכשיו נבדק המספר שלידו */
+    if(best.entry.num===num){
+      /* המספר והשם מצביעים על אותו אדם */
+      out.status = (best.score>=thHigh) ? 'ok' : 'name_warn';
+      return out;
+    }
+
+    /* המספר אינו שייך לאדם שזוהה — זו החריגה שהאפליקציה נועדה לתפוס */
+    if(best.score>=thHigh && !closeCall){
       out.status='wrong';
       return out;
     }
-
-    const closeCall =
-      second.entry &&
-      second.entry!==best.entry &&
-      (best.score-second.score)<0.03;
-
-    if(best.score<thHigh || closeCall){
-      out.alt=second.entry;
-      out.ambiguous=closeCall;
-      out.status='unsure_bad';
-      return out;
-    }
-
-    out.status='wrong';
+    out.alt=second.entry; out.ambiguous=closeCall; out.status='unsure_bad';
     return out;
   });
 }
