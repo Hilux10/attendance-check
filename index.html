@@ -319,6 +319,8 @@ input[type=range]{width:100%;accent-color:var(--accent)}
     <div class="afield">
       <label>שם מלא</label>
       <select id="loginName" class="native"><option value="">טוען משתמשים…</option></select>
+      <input type="text" id="loginNameManual" class="hidden" autocomplete="name"
+             placeholder="הקלד את שמך המלא כפי שרשום במערכת">
       <button type="button" class="pickbtn empty" id="loginNameBtn">
         <span id="loginNameLabel">טוען משתמשים…</span>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
@@ -616,21 +618,49 @@ $('pickCancel').onclick=closePicker;
 async function loadLoginUsers(){
   const sel=$('loginName');
   sel.innerHTML='<option value="">טוען משתמשים…</option>';
-  try{
-    const res=await fetch(API_BASE+'/auth/users',{cache:'no-store'});
-    const data=await res.json();
-    if(!data.ok) throw new Error(data.error||'שגיאה');
-    sel.innerHTML='<option value="">בחר שם</option>'+data.users.map(n=>'<option value="'+esc(n)+'">'+esc(n)+'</option>').join('');
-    syncPicker();
-  }catch(e){
-    sel.innerHTML='<option value="">לא ניתן לטעון משתמשים</option>';
-    syncPicker();
-    $('loginMsg').textContent='אין חיבור לשרת Recon';
-    $('loginMsg').className='amsg err';
+  syncPicker();
+
+  let detail='';
+  /* שני ניסיונות — כשל רגעי ברשת לא אמור לחסום כניסה */
+  for(let attempt=1; attempt<=2; attempt++){
+    try{
+      const res=await fetch(API_BASE+'/auth/users',{cache:'no-store'});
+      const raw=await res.text();
+      if(!res.ok){ detail='קוד '+res.status; throw new Error(detail); }
+      let data;
+      try{ data=JSON.parse(raw); }
+      catch(e){ detail='תשובה לא תקינה מהשרת'; throw new Error(detail); }
+      if(!data.ok || !Array.isArray(data.users)){
+        detail=data.error||'תשובה לא צפויה';
+        throw new Error(detail);
+      }
+      sel.innerHTML='<option value="">בחר שם</option>'+
+        data.users.map(n=>'<option value="'+esc(n)+'">'+esc(n)+'</option>').join('');
+      manualName(false);
+      syncPicker();
+      $('loginMsg').textContent=''; $('loginMsg').className='amsg';
+      return;
+    }catch(e){
+      if(!detail) detail='אין תגובה מהשרת';
+      if(attempt===1) await new Promise(r=>setTimeout(r,900));
+    }
   }
+
+  /* הרשימה לא נטענה — עוברים להקלדת שם, הכניסה לא נחסמת */
+  sel.innerHTML='<option value=""></option>';
+  manualName(true);
+  $('loginMsg').innerHTML='רשימת השמות לא נטענה ('+esc(detail)+')<br>אפשר להקליד את השם ולהתחבר';
+  $('loginMsg').className='amsg err';
+}
+
+/* מעבר בין בורר לשדה חופשי */
+function manualName(on){
+  $('loginNameManual').classList.toggle('hidden',!on);
+  $('loginNameBtn').classList.toggle('hidden',on);
 }
 async function doLogin(){
-  const name=$('loginName').value.trim();
+  const manual=!$('loginNameManual').classList.contains('hidden');
+  const name=(manual ? $('loginNameManual').value : $('loginName').value).trim();
   const phone=$('loginPhone').value.replace(/\D/g,'');
   const msg=$('loginMsg');
   if(!name||!phone){ msg.textContent='יש לבחור שם ולהזין מספר טלפון'; msg.className='amsg err'; return; }
