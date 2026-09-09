@@ -562,6 +562,25 @@ const get=(k,d='')=>{try{return localStorage.getItem(k)??d}catch(e){return d}};
 const set=(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}};
 const del=k=>{try{localStorage.removeItem(k)}catch(e){}};
 const $=id=>document.getElementById(id);
+/* שגיאה מוקדמת בסקריפט משאירה את המסך תקוע על "טוען משתמשים".
+   כאן היא נחשפת במקום להיעלם. */
+(function(){
+  function surface(text){
+    try{
+      var m=document.getElementById('loginMsg');
+      if(m){ m.textContent='שגיאה באפליקציה: '+text; m.className='amsg err'; }
+      var b=document.getElementById('loginNameBtn');
+      var i=document.getElementById('loginNameManual');
+      if(b&&i){ b.classList.add('hidden'); i.classList.remove('hidden'); }
+    }catch(e){}
+  }
+  window.addEventListener('error',e=>surface((e && e.message)||'לא ידועה'));
+  window.addEventListener('unhandledrejection',e=>{
+    var r=e&&e.reason;
+    surface((r&&(r.message||r))||'לא ידועה');
+  });
+})();
+
 const esc=s=>String(s??'').replace(/[&<>\"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;'}[c]));
 let currentUser=null;
 
@@ -615,6 +634,15 @@ $('loginNameBtn').onclick=openPicker;
 $('pickBg').onclick=closePicker;
 $('pickCancel').onclick=closePicker;
 
+/* fetch ללא הגבלת זמן נתקע לנצח כשרשת בולעת בקשה בלי להשיב.
+   AbortController נתמך בכל אייפון רלוונטי, בשונה מ-AbortSignal.timeout. */
+function fetchTimeout(url,opt={},ms=8000){
+  const ctrl=new AbortController();
+  const timer=setTimeout(()=>ctrl.abort(),ms);
+  return fetch(url,{...opt,signal:ctrl.signal})
+    .finally(()=>clearTimeout(timer));
+}
+
 async function loadLoginUsers(){
   const sel=$('loginName');
   sel.innerHTML='<option value="">טוען משתמשים…</option>';
@@ -624,7 +652,7 @@ async function loadLoginUsers(){
   /* שני ניסיונות — כשל רגעי ברשת לא אמור לחסום כניסה */
   for(let attempt=1; attempt<=2; attempt++){
     try{
-      const res=await fetch(API_BASE+'/auth/users',{cache:'no-store'});
+      const res=await fetchTimeout(API_BASE+'/auth/users',{cache:'no-store'},8000);
       const raw=await res.text();
       if(!res.ok){ detail='קוד '+res.status; throw new Error(detail); }
       let data;
@@ -641,7 +669,9 @@ async function loadLoginUsers(){
       $('loginMsg').textContent=''; $('loginMsg').className='amsg';
       return;
     }catch(e){
-      if(!detail) detail='אין תגובה מהשרת';
+      if(!detail) detail = (e && e.name==='AbortError')
+        ? 'השרת לא הגיב תוך 8 שניות'
+        : 'אין תגובה מהשרת';
       if(attempt===1) await new Promise(r=>setTimeout(r,900));
     }
   }
